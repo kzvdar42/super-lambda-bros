@@ -35,6 +35,7 @@ executables:
     dependencies:
     - super-lambda-bros
     - gloss
+    - vector
 
 tests:
   super-lambda-bros-test:
