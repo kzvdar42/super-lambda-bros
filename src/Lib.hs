@@ -1,6 +1,6 @@
 module Lib
-    ( someFunc
+    ( helloFunc
     ) where
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+helloFunc :: IO ()
+helloFunc = putStrLn "Hello, World!"
