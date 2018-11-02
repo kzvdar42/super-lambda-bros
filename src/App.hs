@@ -1,4 +1,6 @@
 module App where
 
-run :: IO ()
-run = putStrLn "Hello, World!"
+import Lib
+
+-- run :: IO ()
+-- run = runGame

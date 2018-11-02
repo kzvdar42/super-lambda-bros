@@ -17,11 +17,15 @@ import State
 import World
 import Graphics.Gloss.Interface.Pure.Game
 
+import Lib
+
 main :: IO ()
-main
- = do   world           <- initialWorld
-        let state       =  initialState world
+-- main
+--  = do   world           <- initialWorld
+--         let state       =  initialState world
         
-        play   FullScreen
-               black 80 state
-               drawState handleInput stepState
+--         play   FullScreen
+--                black 60 state
+--                drawState handleInput stepState
+
+main = play (InWindow "Test" (800,600) (0,0)) black 60 initGame drawGame handleGame updateGame
