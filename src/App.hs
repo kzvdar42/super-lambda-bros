@@ -3,4 +3,4 @@ module App where
 import Lib
 
 run :: IO ()
-run = helloFunc
+run = putStrLn "Hello, World!"
