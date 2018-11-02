@@ -1,5 +1,5 @@
 name:                super-lambda-bros
-version:             0.0.0.0
+version:             0.0.1.0
 github:              "kzvdar42/super-lambda-bros"
 license:             MIT
 author:              "Denis Chernikov, Maxim Surkov, Vladislav Kuleykin"
@@ -20,6 +20,7 @@ description:         Please see the README on GitHub at <https://github.com/kzvd
 
 dependencies:
 - base >= 4.7 && < 5
+- codeworld-api >= 0.2.5
 
 library:
   source-dirs: src
