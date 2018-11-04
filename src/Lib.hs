@@ -245,8 +245,8 @@ move dt (MovingObject pos vel accel kind) =
     (pos_x, pos_y) = pos
     (vel_x, vel_y) = vel
     (accel_x, accel_y) = accel
-    new_x = pos_x + vel_x * dt + accel_x * dt ^^ 2 /2
-    new_y = pos_y + vel_y * dt + accel_y * dt ^^ 2 /2
+    new_x = pos_x + vel_x * dt + accel_x * dt ** 2 /2
+    new_y = pos_y + vel_y * dt + accel_y * dt ** 2 /2
 
 -- ------------------------ Game Engine ------------------------ --
 
