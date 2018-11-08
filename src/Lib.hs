@@ -5,8 +5,11 @@
 -- | Comment the line with module to run this file on `CodeWorld`.
 module Lib where
 
+-- Graphics
 import Graphics.Gloss
 import qualified Graphics.Gloss.Interface.Pure.Game     as G
+-- Float mod
+import Data.Fixed (div')
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
@@ -50,6 +53,9 @@ data CollisionType = Delete | Spawn Kind Position | Change Tile | Stay
 tileSize::Float
 tileSize = 1
 
+playerSize::Float
+playerSize = 0.8*tileSize
+
 -- | Size of the text.
 textScale::Float
 textScale = 0.01
@@ -71,12 +77,12 @@ tileFrictionRate _ = 0.05*tileSize
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (1*tileSize, 4*tileSize)
+step = (1*tileSize, 8*tileSize)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.2*tileSize
+thresh = 0.05*tileSize
 
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
@@ -107,8 +113,8 @@ sampleLevel = [
   ++ [BonusBlockActive] ++ take 9  (makeTiles Brick) ++ [Brick],
   -- Brick  : take 15 (makeTiles Empty) ++ [Brick],  
   Brick  : take 15 (makeTiles Empty) ++ [Brick],
-  Brick  : take 3 (makeTiles Empty) ++ [Brick] 
-  ++ take 11 (makeTiles Empty) ++ [Brick],
+  Brick  : take 5 (makeTiles Empty) ++ [Brick] 
+  ++ take 9 (makeTiles Empty) ++ [Brick],
   Brick  : take 15 (makeTiles Brick) ++ [Brick]   -- Sky 6
   ]
 
@@ -164,6 +170,9 @@ updateRow [] _ _ = []
 updateRow (_:ls) 0 tile = tile : ls
 updateRow (l:ls) n tile = l : updateRow ls (n-1) tile
 
+mapCoordToPos :: Vector2 -> (Integer, Integer)
+mapCoordToPos (x,y) = (div' x tileSize, div' y tileSize)
+
 -- ------------------------ Physics ------------------------ --
 
 -- | Check if there's some collisions.
@@ -171,11 +180,12 @@ updateRow (l:ls) n tile = l : updateRow ls (n-1) tile
 checkCollision :: Game -> Game
 checkCollision game@(Game levels player _ state) =
   case takeTileFromLevel level x y of
-    Nothing -> game
+    Nothing -> game 
     Just tile -> performCollisions (typeOfCollision tile) game
   where
-    (x, y) = (ceiling (pos_x - 0.5*tileSize), ceiling (pos_y -0.5*tileSize))
-    (MovingObject (pos_x, pos_y) _ _ _) = player
+    (x, y) = mapCoordToPos (pos_x, pos_y + playerSize + thresh)
+    (pos_x, pos_y) = pos
+    (MovingObject pos _ _ _) = player
     level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
 
 -- | Perform the collisions.
@@ -185,19 +195,18 @@ performCollisions [] game = game
 performCollisions (c:cs) game@(Game levels player objects state) = 
   case c of
     Delete -> performCollisions cs
-      (Game (updateLevels levels levelNum (x, y) Empty) player objects state)
+      (Game (updateLevels levels levelNum (x + 1, y + 1) Empty) player objects state)
     Spawn kind (off_x, off_y) -> performCollisions cs
       (Game levels player
-      ((MovingObject (fromIntegral x + off_x, fromIntegral y + off_y) 
+      ((MovingObject (fromIntegral x + 1 + off_x, fromIntegral y + 1 + off_y) 
       (1.0*tileSize, 0.0) (0.0, 0.0) kind) : objects) state)
     Change tile -> performCollisions cs
-      (Game (updateLevels levels levelNum (x, y) tile) player objects state)
+      (Game (updateLevels levels levelNum (x + 1, y + 1) tile) player objects state)
     Stay -> performCollisions cs game
   where
-    (x, y) = (ceiling pos_x, ceiling (pos_y + thresh))
+    (x, y) = mapCoordToPos pos
     (MovingObject pos _ _ _) = player
     levelNum = gameStateLvlNum state
-    (pos_x, pos_y) = pos
 
 -- | Apply gravity to the `MovingObject`.
 applyGravity :: MovingObject -> MovingObject
@@ -271,6 +280,8 @@ updateGame dt (Game levels player objects state) =
 tryMove :: Float -> Level -> MovingObject -> MovingObject
 tryMove dt level object@(MovingObject old_pos _ _ objKind)
   | canMove level (new_x, new_y) = new_obj
+  | canMove level (old_x, new_y) && not (isPlayer objKind)
+  = move dt (MovingObject old_pos (-vel_x, vel_y) (-accel_x, accel_y) objKind)
   | canMove level (old_x, new_y)
   = move dt (MovingObject old_pos (0.0, vel_y) (0.0, accel_y) objKind)
   | canMove level (new_x, old_y)
@@ -291,20 +302,18 @@ tryMove dt level object@(MovingObject old_pos _ _ objKind)
 -- | Checks if the `MovingObject` can move at this position.
 canMove :: Level -> Position -> Bool
 canMove level pos =
-  case (left_top, left_down, right_top, right_down) of
+  case (left, right, floor, ceiling) of
   (Just t1, Just t2, Just t3, Just t4) ->
     canPass t1 && canPass t2 && canPass t3 && canPass t4
   _ -> False
   where
+    right = takeTileFromLevel level (x_r) y
+    left = takeTileFromLevel level (x_r) (y_r)
+    ceiling = takeTileFromLevel level x (y_r)
+    floor = takeTileFromLevel level x y
+    (x, y) = mapCoordToPos pos
     (pos_x, pos_y) = pos
-    left_top = takeTileFromLevel level left top
-    left_down = takeTileFromLevel level left down
-    right_top = takeTileFromLevel level right top
-    right_down = takeTileFromLevel level right down
-    left = floor pos_x
-    right = ceiling pos_x
-    top = ceiling pos_y
-    down = floor pos_y
+    (x_r, y_r) = mapCoordToPos (pos_x + playerSize, pos_y + playerSize)
 
 -- | Update Player speed due to user input.
 handleGame :: G.Event -> Game -> Game
@@ -332,7 +341,7 @@ drawGame (Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
   in
-    scale gameScale gameScale (drawLevel level)
+    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLevel level))
     <> scale gameScale gameScale (pictures (map (drawObject) objects))
     <> scale gameScale gameScale (drawObject player)
 
