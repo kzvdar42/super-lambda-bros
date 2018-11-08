@@ -2,26 +2,29 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
 
--- | Comment the line with module to run this file on `CodeWorld`.
+-- Comment this line with module to run this file on `CodeWorld`.
 module Lib where
 
 -- Graphics
 import Graphics.Gloss
-import qualified Graphics.Gloss.Interface.Pure.Game     as G
+import qualified Graphics.Gloss.Interface.Pure.Game as G
 -- Float mod
 import Data.Fixed (div')
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
 data Tile = Ground | Brick | BonusBlockActive | BonusBlockEmpty | Empty
+
 -- | Level of the game.
 type Level = [[Tile]]
+
 -- | State of the game (HP levelNumber nextLevel).
-data GameState = GameState {
-                 gameStateHp            :: Int
-                 , gameStateLvlNum      :: Int
-                 , gameStateNextLvlNum  :: Maybe Int
-}
+data GameState = GameState
+  { gameStateHp          :: Int
+  , gameStateLvlNum      :: Int
+  , gameStateNextLvlNum  :: Maybe Int
+  }
+
 -- | Game.
 data Game = Game [Level] MovingObject [MovingObject] GameState
 
@@ -30,9 +33,11 @@ type Vector2 = (Float, Float)
 type Position = Vector2
 type Velocity = Vector2
 type Acceleration = Vector2
+
 -- | Data type for the objects o the level.
 data MovingObject
   = MovingObject Position Velocity Acceleration Kind
+
 -- | Kind of the MovingObject.
 data Kind
   -- Player.
@@ -44,6 +49,7 @@ data Kind
   | Mushroom
   | Star
   | Shell
+
 -- | Types of collisions.
 data CollisionType = Delete | Spawn Kind Position | Change Tile | Stay
 
@@ -68,21 +74,21 @@ gameScale = 30
 
 -- | Gravity of the world.
 g :: Float
-g = 0.01*tileSize
+g = 0.01 * tileSize
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
 tileFrictionRate Empty = 0
-tileFrictionRate _ = 0.05*tileSize
+tileFrictionRate _ = 0.05
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (1*tileSize, 8*tileSize)
+step = (1 * tileSize, 4 * tileSize)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.05*tileSize
+thresh = 0.05 * tileSize
 
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
@@ -92,8 +98,8 @@ canPass _ = False
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
 typeOfCollision Brick = [Delete]
-typeOfCollision BonusBlockActive 
-  = Spawn Mushroom (0, 1*tileSize) : [Change BonusBlockEmpty]
+typeOfCollision BonusBlockActive
+  = [Spawn Mushroom (0, 1 * tileSize), Change BonusBlockEmpty]
 typeOfCollision _ = [Stay]
 
 -- ------------------------ Sample game ------------------------ --
@@ -104,38 +110,38 @@ makeTiles tile = [tile] ++ makeTiles tile
 
 -- | Sample level for the game.
 sampleLevel :: Level
-sampleLevel = [
-  Ground : take 15 (makeTiles Ground)++ [Ground], -- Bottom 0
-  Brick  : take 4 (makeTiles Empty) ++ [Brick] 
-  ++ take 10 (makeTiles Empty) ++ [Brick],
-  Brick  : take 15 (makeTiles Empty) ++ [Brick],
-  Brick  : take 3  (makeTiles Empty) ++ take 2  (makeTiles Brick) 
-  ++ [BonusBlockActive] ++ take 9  (makeTiles Brick) ++ [Brick],
-  -- Brick  : take 15 (makeTiles Empty) ++ [Brick],  
-  Brick  : take 15 (makeTiles Empty) ++ [Brick],
-  Brick  : take 5 (makeTiles Empty) ++ [Brick] 
-  ++ take 9 (makeTiles Empty) ++ [Brick],
-  Brick  : take 15 (makeTiles Brick) ++ [Brick]   -- Sky 6
+sampleLevel =
+  [ Ground : take 15 (makeTiles Ground) ++ [Ground] -- Bottom 0
+  , Brick  : take 4 (makeTiles Empty) ++ [Brick]
+    ++ take 10 (makeTiles Empty) ++ [Brick]
+  , Brick  : take 15 (makeTiles Empty) ++ [Brick]
+  , Brick  : take 3  (makeTiles Empty) ++ take 2  (makeTiles Brick)
+    ++ [BonusBlockActive] ++ take 9  (makeTiles Brick) ++ [Brick]
+--, Brick  : take 15 (makeTiles Empty) ++ [Brick]
+  , Brick  : take 15 (makeTiles Empty) ++ [Brick]
+  , Brick  : take 3 (makeTiles Empty) ++ [Brick]
+    ++ take 11 (makeTiles Empty) ++ [Brick]
+  , Brick  : take 15 (makeTiles Brick) ++ [Brick] -- Sky 6
   ]
 
 -- | Init state of the game.
 initState :: GameState
-initState =  GameState {
-  gameStateHp           = 3
+initState =  GameState
+  { gameStateHp         = 3
   , gameStateLvlNum     = 0
   , gameStateNextLvlNum = Nothing
-}
+  }
 
 -- | Initial state of the player.
 initPlayer :: MovingObject
-initPlayer = MovingObject (1.0*tileSize, 1.0*tileSize) (0.0, 0.0) (0.0, 0.0) Player
+initPlayer = MovingObject (1.0 * tileSize, 1.0 * tileSize) (0.0, 0.0) (0.0, 0.0) Player
 
 -- | Initial amount of enemies.
-initEnemies :: [MovingObject]
-initEnemies = [
-  MovingObject (3.0*tileSize, 1.0*tileSize) (-1.0*tileSize, 0.0) (0.0, 0.0) Gumba,
-  MovingObject (4.0*tileSize, 1.0*tileSize) (1.0*tileSize, 0.0) (0.0, 0.0) Turtle,
-  MovingObject (7.0*tileSize, 4.0*tileSize) (2.0*tileSize, 0.0) (0.0, 0.0) Mushroom
+initObjects :: [MovingObject]
+initObjects =
+  [ MovingObject (3.0 * tileSize, 1.0 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0) Gumba
+  , MovingObject (4.0 * tileSize, 1.0 * tileSize) (1.0 * tileSize, 0.0) (0.0, 0.0) Turtle
+  , MovingObject (7.0 * tileSize, 4.0 * tileSize) (2.0 * tileSize, 0.0) (0.0, 0.0) Mushroom
   ]
 
 -- ------------------------ Working with map ------------------------ --
@@ -144,31 +150,31 @@ initEnemies = [
 takeTileFromLevel :: Level -> Integer -> Integer -> Maybe Tile
 takeTileFromLevel [] _ _ = Nothing
 takeTileFromLevel (l:_) pos_x 0 = takeTileFromList l pos_x
-takeTileFromLevel (_:ls) pos_x pos_y = takeTileFromLevel ls pos_x (pos_y-1)
+takeTileFromLevel (_:ls) pos_x pos_y = takeTileFromLevel ls pos_x (pos_y - 1)
 
 -- | Safely take tile from the tile row.
 takeTileFromList :: [Tile] -> Integer -> Maybe Tile
 takeTileFromList [] _ = Nothing
 takeTileFromList (l:_) 0 = Just l
-takeTileFromList (_:ls) n = takeTileFromList ls (n-1)
+takeTileFromList (_:ls) n = takeTileFromList ls (n - 1)
 
 -- | Update the level in the list.
 updateLevels :: [Level] -> Int -> (Integer, Integer) -> Tile -> [Level]
 updateLevels [] _ _ _ = []
 updateLevels (l:ls) 0 pos tile = updateLevel l pos tile : ls
-updateLevels (l:ls) n pos tile = l : updateLevels ls (n-1) pos tile
+updateLevels (l:ls) n pos tile = l : updateLevels ls (n - 1) pos tile
 
 -- | Update the tile in the level.
 updateLevel :: Level -> (Integer, Integer) -> Tile -> Level
-updateLevel [] _ _ = [] 
+updateLevel [] _ _ = []
 updateLevel (l:ls) (pos_x, 0) tile = updateRow l pos_x tile : ls
-updateLevel (l:ls) (pos_x, pos_y) tile = l : updateLevel ls (pos_x, pos_y-1) tile
+updateLevel (l:ls) (pos_x, pos_y) tile = l : updateLevel ls (pos_x, pos_y - 1) tile
 
 -- | Update the tile in the row.
 updateRow :: [Tile] -> Integer -> Tile -> [Tile]
 updateRow [] _ _ = []
 updateRow (_:ls) 0 tile = tile : ls
-updateRow (l:ls) n tile = l : updateRow ls (n-1) tile
+updateRow (l:ls) n tile = l : updateRow ls (n - 1) tile
 
 mapCoordToPos :: Vector2 -> (Integer, Integer)
 mapCoordToPos (x,y) = (div' x tileSize, div' y tileSize)
@@ -192,14 +198,14 @@ checkCollision game@(Game levels player _ state) =
 -- Right now the implementation is fixed to the position of the player.
 performCollisions :: [CollisionType] -> Game -> Game
 performCollisions [] game = game
-performCollisions (c:cs) game@(Game levels player objects state) = 
+performCollisions (c:cs) game@(Game levels player objects state) =
   case c of
     Delete -> performCollisions cs
       (Game (updateLevels levels levelNum (x + 1, y + 1) Empty) player objects state)
     Spawn kind (off_x, off_y) -> performCollisions cs
       (Game levels player
-      ((MovingObject (fromIntegral x + 1 + off_x, fromIntegral y + 1 + off_y) 
-      (1.0*tileSize, 0.0) (0.0, 0.0) kind) : objects) state)
+      ((MovingObject (fromIntegral x + off_x, fromIntegral y + off_y)
+      (1.0 * tileSize, 0.0) (0.0, 0.0) kind) : objects) state)
     Change tile -> performCollisions cs
       (Game (updateLevels levels levelNum (x + 1, y + 1) tile) player objects state)
     Stay -> performCollisions cs game
@@ -218,7 +224,7 @@ applyGravity (MovingObject pos vel accel objKind)
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
 applyFriction level object@(MovingObject pos vel accel objKind) =
-  case takeTileFromLevel level (floor pos_x) (floor (pos_y-0.01)) of
+  case takeTileFromLevel level (floor pos_x) (floor (pos_y - 0.01)) of
     Nothing -> object
     Just tile -> MovingObject pos (vel_x - vel_x*tileFrictionRate tile, vel_y)
       accel objKind
@@ -229,9 +235,9 @@ applyFriction level object@(MovingObject pos vel accel objKind) =
 -- | Jump to the stars!
 makeJump :: Level -> MovingObject -> Vector2 -> MovingObject
 makeJump level player@(MovingObject pos vel accel kind) (off_x, off_y) =
-  case takeTileFromLevel level (floor pos_x) (floor (pos_y-0.01))  of
+  case takeTileFromLevel level (floor pos_x) (floor (pos_y - 0.01))  of
   Nothing -> player
-  Just tile -> 
+  Just tile ->
     if not (canPass tile) then MovingObject pos new_vel accel kind else player
   where
     (pos_x, pos_y) = pos
@@ -254,21 +260,21 @@ move dt (MovingObject pos vel accel kind) =
     (pos_x, pos_y) = pos
     (vel_x, vel_y) = vel
     (accel_x, accel_y) = accel
-    new_x = pos_x + vel_x * dt + accel_x * dt ** 2 /2
-    new_y = pos_y + vel_y * dt + accel_y * dt ** 2 /2
+    new_x = pos_x + vel_x * dt + accel_x * dt ** 2 / 2
+    new_y = pos_y + vel_y * dt + accel_y * dt ** 2 / 2
 
 -- ------------------------ Game Engine ------------------------ --
 
 -- | Init state of the game.
 initGame :: Game
-initGame = Game [sampleLevel] initPlayer initEnemies initState
+initGame = Game [sampleLevel] initPlayer initObjects initState
 
 -- | Physics of the game.
 updateGame :: Float -> Game -> Game
-updateGame dt (Game levels player objects state) = 
+updateGame dt (Game levels player objects state) =
   case gameStateNextLvlNum state of
     Nothing -> checkCollision (Game levels upd_player upd_objects state)
-    Just nextLevel -> Game levels upd_player upd_objects 
+    Just nextLevel -> Game levels upd_player upd_objects
       (state {gameStateLvlNum = nextLevel, gameStateNextLvlNum = Nothing})
   where
     level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
@@ -322,11 +328,11 @@ handleGame (G.EventKey key keyState _ _) (Game levels player objects state)
   , G.Down  <- keyState
   = Game levels (makeJump level player (0.0, snd step)) objects  state
     where
-      level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
+      level = levels !! gameStateLvlNum state -- TODO: make this safe.
 handleGame (G.EventKey key keyState _ _) (Game levels player objects state)
   | G.SpecialKey G.KeyLeft <- key
   , G.Down    <- keyState
-  = Game levels (changeSpeed player (-fst step, 0.0)) objects state
+  = Game levels (changeSpeed player (- fst step, 0.0)) objects state
 handleGame (G.EventKey key keyState _ _) (Game levels player objects state)
   | G.SpecialKey G.KeyRight <- key
   , G.Down    <- keyState
@@ -379,7 +385,7 @@ drawKind Shell = scale textScale textScale (text "SH")
 
 -- | Draw object.
 drawObject :: MovingObject -> Picture
-drawObject (MovingObject pos _ _ objType) 
+drawObject (MovingObject pos _ _ objType)
   = translate pos_x pos_y (drawKind objType)
   where
     (pos_x, pos_y) = pos
