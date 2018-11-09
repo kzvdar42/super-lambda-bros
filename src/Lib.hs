@@ -60,7 +60,7 @@ data Assets = Assets {marioSprites::[Picture], envSprites::[Picture], enemySprit
 
 -- | Size of the tiles.
 tileSize::Float
-tileSize = 1
+tileSize = 16
 
 -- | Size of the minimum MovingObject.
 -- Size of the others should be a scalar multiplication of this.
@@ -73,7 +73,7 @@ textScale = 0.01
 
 -- | Game scale.
 gameScale::Float
-gameScale = 30
+gameScale = 2
 
 -- ------------------------ Game constants ------------------------ --
 
@@ -391,8 +391,8 @@ drawLine assets (tile:tiles)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
-drawTile assets Ground = color orange (rectangleSolid tileSize tileSize)
-drawTile assets Brick = color red (rectangleSolid tileSize tileSize)
+drawTile assets Ground = (envSprites assets)!!0 -- color orange (rectangleSolid tileSize tileSize)
+drawTile assets Brick = (envSprites assets)!!0 -- color red (rectangleSolid tileSize tileSize)
 drawTile assets BonusBlockActive = color yellow (rectangleSolid tileSize tileSize)
 drawTile assets BonusBlockEmpty = color orange (rectangleSolid tileSize tileSize)
 drawTile assets Empty = color white (rectangleSolid tileSize tileSize)
@@ -407,24 +407,31 @@ drawObject assets (MovingObject objType (pos_x, pos_y) _ _)
 -- | Draw the objectKing.
 drawKind :: Assets -> Kind -> Picture
 drawKind assets BigPlayer 
-  = scale tileSize tileSize 
-  (color red (rectangleSolid (fst (getSize BigPlayer)) (snd (getSize BigPlayer))))
+  = (marioSprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color red (rectangleSolid (fst (getSize BigPlayer)) (snd (getSize BigPlayer))))
 drawKind assets SmallPlayer
-  = scale tileSize tileSize
-  (color red (rectangleSolid (fst (getSize SmallPlayer)) (snd (getSize SmallPlayer))))
+  = (marioSprites assets)!!0 
+   -- scale tileSize tileSize
+  -- (color red (rectangleSolid (fst (getSize SmallPlayer)) (snd (getSize SmallPlayer))))
 drawKind assets Gumba
-  = scale tileSize tileSize 
-  (color blue (rectangleSolid (fst (getSize Gumba)) (snd (getSize Gumba))))
+  = (enemySprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color blue (rectangleSolid (fst (getSize Gumba)) (snd (getSize Gumba))))
 drawKind assets Turtle
-  = scale tileSize tileSize 
-  (color green (rectangleSolid (fst (getSize Turtle)) (snd (getSize Turtle))))
+  = (enemySprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color green (rectangleSolid (fst (getSize Turtle)) (snd (getSize Turtle))))
 drawKind assets Mushroom
-  = scale tileSize tileSize 
-  (color blue (rectangleSolid (fst (getSize Mushroom)) (snd (getSize Mushroom))))
+  = (enemySprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color blue (rectangleSolid (fst (getSize Mushroom)) (snd (getSize Mushroom))))
 drawKind assets Star
-  = scale tileSize tileSize 
-  (color yellow(rectangleSolid (fst (getSize Star)) (snd (getSize Star))))
+  = (enemySprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color yellow(rectangleSolid (fst (getSize Star)) (snd (getSize Star))))
 drawKind assets Shell
-  = scale tileSize tileSize 
-  (color green (rectangleSolid (fst (getSize Shell)) (snd (getSize Shell))))
+  = (enemySprites assets)!!0
+  --   scale tileSize tileSize 
+  -- (color green (rectangleSolid (fst (getSize Shell)) (snd (getSize Shell))))
 
