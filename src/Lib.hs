@@ -33,15 +33,17 @@ type Vector2 = (Float, Float)
 type Position = Vector2
 type Velocity = Vector2
 type Acceleration = Vector2
+type Size = Vector2
 
 -- | Data type for the objects o the level.
 data MovingObject
-  = MovingObject Position Velocity Acceleration Kind
+  = MovingObject Kind Position Velocity Acceleration
 
 -- | Kind of the MovingObject.
 data Kind
   -- Player.
-  = Player
+  = BigPlayer
+  | SmallPlayer
   -- Enemies.
   | Gumba
   | Turtle
@@ -59,8 +61,10 @@ data CollisionType = Delete | Spawn Kind Position | Change Tile | Stay
 tileSize::Float
 tileSize = 1
 
-playerSize::Float
-playerSize = 0.8*tileSize
+-- | Size of the minimum MovingObject.
+-- Size of the others should be a scalar multiplication of this.
+minObjSize::Float
+minObjSize = 0.8*tileSize
 
 -- | Size of the text.
 textScale::Float
@@ -102,6 +106,16 @@ typeOfCollision BonusBlockActive
   = [Spawn Mushroom (0, 1 * tileSize), Change BonusBlockEmpty]
 typeOfCollision _ = [Stay]
 
+-- | Get size of `MovingObject of given Kind.
+getSize :: Kind -> Size
+getSize BigPlayer = (minObjSize, minObjSize*2)
+getSize SmallPlayer = (minObjSize, minObjSize)
+getSize Gumba = (minObjSize, minObjSize)
+getSize Turtle = (minObjSize, minObjSize*2)
+getSize Mushroom = (minObjSize, minObjSize)
+getSize Star = (minObjSize, minObjSize)
+getSize Shell = (minObjSize, minObjSize)
+
 -- ------------------------ Sample game ------------------------ --
 
 -- | Function for ease of making big amounts of tiles.
@@ -134,14 +148,14 @@ initState =  GameState
 
 -- | Initial state of the player.
 initPlayer :: MovingObject
-initPlayer = MovingObject (1.0 * tileSize, 1.0 * tileSize) (0.0, 0.0) (0.0, 0.0) Player
+initPlayer = MovingObject SmallPlayer (1.0 * tileSize, 1.0 * tileSize) (0.0, 0.0) (0.0, 0.0)
 
 -- | Initial amount of enemies.
 initObjects :: [MovingObject]
 initObjects =
-  [ MovingObject (3.0 * tileSize, 1.0 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0) Gumba
-  , MovingObject (4.0 * tileSize, 1.0 * tileSize) (1.0 * tileSize, 0.0) (0.0, 0.0) Turtle
-  , MovingObject (7.0 * tileSize, 4.0 * tileSize) (2.0 * tileSize, 0.0) (0.0, 0.0) Mushroom
+  [ MovingObject Gumba (3.0 * tileSize, 1.0 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Turtle (4.0 * tileSize, 1.0 * tileSize) (1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Mushroom (7.0 * tileSize, 4.0 * tileSize) (2.0 * tileSize, 0.0) (0.0, 0.0)
   ]
 
 -- ------------------------ Working with map ------------------------ --
@@ -176,8 +190,8 @@ updateRow [] _ _ = []
 updateRow (_:ls) 0 tile = tile : ls
 updateRow (l:ls) n tile = l : updateRow ls (n - 1) tile
 
-mapCoordToPos :: Vector2 -> (Integer, Integer)
-mapCoordToPos (x,y) = (div' x tileSize, div' y tileSize)
+mapPosToCoord :: Vector2 -> (Integer, Integer)
+mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 
 -- ------------------------ Physics ------------------------ --
 
@@ -189,9 +203,9 @@ checkCollision game@(Game levels player _ state) =
     Nothing -> game 
     Just tile -> performCollisions (typeOfCollision tile) game
   where
-    (x, y) = mapCoordToPos (pos_x, pos_y + playerSize + thresh)
+    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (pos_x, pos_y) = pos
-    (MovingObject pos _ _ _) = player
+    (MovingObject kind pos _ _ ) = player
     level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
 
 -- | Perform the collisions.
@@ -284,42 +298,48 @@ updateGame dt (Game levels player objects state) =
 
 -- | Try to move thethe `MovingObject` by given offset.
 tryMove :: Float -> Level -> MovingObject -> MovingObject
-tryMove dt level object@(MovingObject old_pos _ _ objKind)
-  | canMove level (new_x, new_y) = new_obj
-  | canMove level (old_x, new_y) && not (isPlayer objKind)
-  = move dt (MovingObject old_pos (-vel_x, vel_y) (-accel_x, accel_y) objKind)
-  | canMove level (old_x, new_y)
-  = move dt (MovingObject old_pos (0.0, vel_y) (0.0, accel_y) objKind)
-  | canMove level (new_x, old_y)
-  = move dt (MovingObject old_pos (vel_x, 0.0) (accel_x, 0.0) objKind)
-  | isPlayer objKind
-  = MovingObject old_pos (0.0, 0.0) (0.0, 0.0) objKind
+tryMove dt level object@(MovingObject kind old_pos@(old_x, old_y) _ _)
+  | canMoveAtThisLvl (new_x, new_y) = new_obj
+  | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
+  = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y))
+  | canMoveAtThisLvl (old_x, new_y)
+  = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y))
+  | canMoveAtThisLvl (new_x, old_y)
+  = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0))
+  | isPlayer kind
+  = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0)
   | otherwise
-  = MovingObject old_pos (-vel_x, vel_y) (-accel_x, accel_y) objKind
+  = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
   where
-    new_obj@(MovingObject new_pos vel accel _) = move dt object
-    isPlayer Player = True
-    isPlayer _ = False
-    (vel_x, vel_y) = vel
-    (accel_x, accel_y) = accel
-    (old_x, old_y) = old_pos
-    (new_x, new_y) = new_pos
+    canMoveAtThisLvl = canThisBigObjectMove level (getSize kind)
+    new_obj@(MovingObject
+      _ (new_x, new_y) (vel_x, vel_y) (accel_x, accel_y)) = move dt object
 
--- | Checks if the `MovingObject` can move at this position.
+    isPlayer BigPlayer = True
+    isPlayer SmallPlayer = True
+    isPlayer _ = False
+
+-- | Checks if the complex `MovingObject` can move at given position.
+canThisBigObjectMove :: Level -> Size -> Position -> Bool
+canThisBigObjectMove lvl (size_x, size_y) (pos_x, pos_y)
+  = foldr1 (&&)
+  (map (\(x, y) -> canMove lvl (pos_x + x*minObjSize, pos_y + y*minObjSize))
+  [(a, b)|a <- [0..size_x - 1], b <- [0..size_y - 1]])
+
+-- | Checks if the simple `MovingObject` can move at this position.
 canMove :: Level -> Position -> Bool
-canMove level pos =
-  case (left, right, floor, ceiling) of
+canMove lvl pos@(pos_x, pos_y) =
+  case (left_bot, left_top, right_bot, right_top) of
   (Just t1, Just t2, Just t3, Just t4) ->
     canPass t1 && canPass t2 && canPass t3 && canPass t4
   _ -> False
   where
-    right = takeTileFromLevel level (x_r) y
-    left = takeTileFromLevel level (x_r) (y_r)
-    ceiling = takeTileFromLevel level x (y_r)
-    floor = takeTileFromLevel level x y
-    (x, y) = mapCoordToPos pos
-    (pos_x, pos_y) = pos
-    (x_r, y_r) = mapCoordToPos (pos_x + playerSize, pos_y + playerSize)
+    left_bot = takeTileFromLvl lvl x y
+    left_top = takeTileFromLvl lvl x (y_r)
+    right_bot = takeTileFromLvl lvl (x_r) y
+    right_top = takeTileFromLvl lvl (x_r) (y_r)
+    (x, y) = mapPosToCoord pos
+    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize, pos_y + minObjSize)
 
 -- | Update Player speed due to user input.
 handleGame :: G.Event -> Game -> Game
@@ -370,18 +390,40 @@ drawLine (tile:tiles)
 drawTile :: Tile -> Picture
 drawTile Ground = color orange (rectangleSolid tileSize tileSize)
 drawTile Brick = color red (rectangleSolid tileSize tileSize)
-drawTile BonusBlockActive = text "?" <> color yellow (rectangleSolid tileSize tileSize)
+drawTile BonusBlockActive = color yellow (rectangleSolid tileSize tileSize)
 drawTile BonusBlockEmpty = color orange (rectangleSolid tileSize tileSize)
 drawTile Empty = color white (rectangleSolid tileSize tileSize)
 
+-- | Draw object.
+drawObject :: MovingObject -> Picture
+drawObject (MovingObject objType (pos_x, pos_y) _ _)
+  = translate (pos_x + size_x/2) (pos_y + size_y/2) (drawKind objType)
+  where
+    (size_x, size_y) = getSize objType
+
 -- | Draw the objectKing.
 drawKind :: Kind -> Picture
-drawKind Player = scale textScale textScale (text "P")
-drawKind Gumba = scale textScale textScale (text "G")
-drawKind Turtle = scale textScale textScale (text "T")
-drawKind Mushroom = scale textScale textScale (text "M")
-drawKind Star = scale textScale textScale (text "S")
-drawKind Shell = scale textScale textScale (text "SH")
+drawKind BigPlayer 
+  = scale tileSize tileSize 
+  (color red (rectangleSolid (fst (getSize BigPlayer)) (snd (getSize BigPlayer))))
+drawKind SmallPlayer
+  = scale tileSize tileSize
+  (color red (rectangleSolid (fst (getSize SmallPlayer)) (snd (getSize SmallPlayer))))
+drawKind Gumba
+  = scale tileSize tileSize 
+  (color blue (rectangleSolid (fst (getSize Gumba)) (snd (getSize Gumba))))
+drawKind Turtle
+  = scale tileSize tileSize 
+  (color green (rectangleSolid (fst (getSize Turtle)) (snd (getSize Turtle))))
+drawKind Mushroom
+  = scale tileSize tileSize 
+  (color blue (rectangleSolid (fst (getSize Mushroom)) (snd (getSize Mushroom))))
+drawKind Star
+  = scale tileSize tileSize 
+  (color yellow(rectangleSolid (fst (getSize Star)) (snd (getSize Star))))
+drawKind Shell
+  = scale tileSize tileSize 
+  (color green (rectangleSolid (fst (getSize Shell)) (snd (getSize Shell))))
 
 -- | Draw object.
 drawObject :: MovingObject -> Picture
