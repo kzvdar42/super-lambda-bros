@@ -55,6 +55,7 @@ data Kind
 -- | Types of collisions.
 data CollisionType = Delete | Spawn Kind Position | Change Tile
 
+data Assets = Assets {marioSprites::[Picture], envSprites::[Picture], enemySprites::[Picture]}
 -- ------------------------ Game scale ------------------------ --
 
 -- | Size of the tiles.
@@ -364,66 +365,66 @@ handleGame _ game  = game
 -- ------------------------ Drawing the game ------------------------ --
 
 -- | Draw the game.
-drawGame :: Game -> Picture
-drawGame (Game levels player objects state) =
+drawGame :: Assets -> Game -> Picture
+drawGame assets (Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
   in
-    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLevel level))
-    <> scale gameScale gameScale (pictures (map (drawObject) objects))
-    <> scale gameScale gameScale (drawObject player)
+    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLevel assets level))
+    <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
+    <> scale gameScale gameScale (drawObject assets player)
 
 -- | Draw the level.
-drawLevel :: Level -> Picture
-drawLevel [] = blank
-drawLevel (l:ls)
-  = drawLine l
-  <> (translate 0 (tileSize) (drawLevel ls))
+drawLevel :: Assets -> Level -> Picture
+drawLevel assets [] = blank
+drawLevel assets (l:ls)
+  = drawLine assets l
+  <> (translate 0 (tileSize) (drawLevel assets ls))
 
 -- | Draw the line of the level.
-drawLine :: [Tile] -> Picture
-drawLine [] = blank
-drawLine (tile:tiles)
-  = drawTile tile
-  <> translate tileSize 0 (drawLine tiles)
+drawLine :: Assets -> [Tile] -> Picture
+drawLine assets [] = blank
+drawLine assets (tile:tiles)
+  = drawTile assets tile
+  <> translate tileSize 0 (drawLine assets tiles)
 
 
 -- | Draw one tile.
-drawTile :: Tile -> Picture
-drawTile Ground = color orange (rectangleSolid tileSize tileSize)
-drawTile Brick = color red (rectangleSolid tileSize tileSize)
-drawTile BonusBlockActive = color yellow (rectangleSolid tileSize tileSize)
-drawTile BonusBlockEmpty = color orange (rectangleSolid tileSize tileSize)
-drawTile Empty = color white (rectangleSolid tileSize tileSize)
+drawTile :: Assets -> Tile -> Picture
+drawTile assets Ground = color orange (rectangleSolid tileSize tileSize)
+drawTile assets Brick = color red (rectangleSolid tileSize tileSize)
+drawTile assets BonusBlockActive = color yellow (rectangleSolid tileSize tileSize)
+drawTile assets BonusBlockEmpty = color orange (rectangleSolid tileSize tileSize)
+drawTile assets Empty = color white (rectangleSolid tileSize tileSize)
 
 -- | Draw object.
-drawObject :: MovingObject -> Picture
-drawObject (MovingObject objType (pos_x, pos_y) _ _)
-  = translate (pos_x + size_x/2) (pos_y + size_y/2) (drawKind objType)
+drawObject :: Assets -> MovingObject -> Picture
+drawObject assets (MovingObject objType (pos_x, pos_y) _ _)
+  = translate (pos_x + size_x/2) (pos_y + size_y/2) (drawKind assets objType)
   where
     (size_x, size_y) = getSize objType
 
 -- | Draw the objectKing.
-drawKind :: Kind -> Picture
-drawKind BigPlayer 
+drawKind :: Assets -> Kind -> Picture
+drawKind assets BigPlayer 
   = scale tileSize tileSize 
   (color red (rectangleSolid (fst (getSize BigPlayer)) (snd (getSize BigPlayer))))
-drawKind SmallPlayer
+drawKind assets SmallPlayer
   = scale tileSize tileSize
   (color red (rectangleSolid (fst (getSize SmallPlayer)) (snd (getSize SmallPlayer))))
-drawKind Gumba
+drawKind assets Gumba
   = scale tileSize tileSize 
   (color blue (rectangleSolid (fst (getSize Gumba)) (snd (getSize Gumba))))
-drawKind Turtle
+drawKind assets Turtle
   = scale tileSize tileSize 
   (color green (rectangleSolid (fst (getSize Turtle)) (snd (getSize Turtle))))
-drawKind Mushroom
+drawKind assets Mushroom
   = scale tileSize tileSize 
   (color blue (rectangleSolid (fst (getSize Mushroom)) (snd (getSize Mushroom))))
-drawKind Star
+drawKind assets Star
   = scale tileSize tileSize 
   (color yellow(rectangleSolid (fst (getSize Star)) (snd (getSize Star))))
-drawKind Shell
+drawKind assets Shell
   = scale tileSize tileSize 
   (color green (rectangleSolid (fst (getSize Shell)) (snd (getSize Shell))))
 
