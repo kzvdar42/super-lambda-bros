@@ -161,13 +161,13 @@ initObjects =
 -- ------------------------ Working with map ------------------------ --
 
 -- | Safely take the tile with given indexes from the level.
-takeTileFromLvl :: Level -> Integer -> Integer -> Maybe Tile
+takeTileFromLvl :: [[a]] -> Integer -> Integer -> Maybe a
 takeTileFromLvl [] _ _ = Nothing
 takeTileFromLvl (l:_) pos_x 0 = takeTileFromList l pos_x
 takeTileFromLvl (_:ls) pos_x pos_y = takeTileFromLvl ls pos_x (pos_y - 1)
 
 -- | Safely take tile from the tile row.
-takeTileFromList :: [Tile] -> Integer -> Maybe Tile
+takeTileFromList :: [a] -> Integer -> Maybe a
 takeTileFromList [] _ = Nothing
 takeTileFromList (l:_) 0 = Just l
 takeTileFromList (_:ls) n = takeTileFromList ls (n - 1)
@@ -200,7 +200,7 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
 checkCollision game@(Game levels player _ state)
-  | pos_x - fromIntegral x < fromIntegral x_r - pos_x =
+  | pos_x - (fromIntegral x)*tileSize < (fromIntegral x_r)*tileSize - pos_x =
     case takeTileFromLvl level x y of
       Nothing -> case takeTileFromLvl level x_r y of
         Nothing -> game
@@ -215,7 +215,7 @@ checkCollision game@(Game levels player _ state)
     
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
-    (x_r, _) = mapPosToCoord (pos_x + (snd (getSize kind)), pos_y)
+    (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (pos_x, pos_y) = pos
     (MovingObject kind pos _ _ ) = player
     level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
@@ -254,18 +254,21 @@ applyFriction level object@(MovingObject kind pos (vel_x, vel_y) accel) =
   where
     (pos_x, pos_y) = pos
 
+-- | Check if the object can jump from this position.
+canJump :: Level -> Position -> Bool
+canJump lvl (pos_x, pos_y) = 
+  case takeTileFromLvl lvl (floor pos_x) (floor (pos_y - 0.01))  of
+  Nothing -> False
+  Just tile -> if not (canPass tile) then True else False
+
 -- | Jump to the stars!
-makeJump :: Level -> MovingObject -> Vector2 -> MovingObject
-makeJump level player@(MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y) =
-  case takeTileFromLvl level (floor pos_x) (floor (pos_y - 0.01))  of
-  Nothing -> player
-  Just tile ->
-    if not (canPass tile) 
-      then MovingObject kind pos new_vel accel
-      else player
+makeJump :: Level -> MovingObject -> Position -> MovingObject
+makeJump lvl player@(MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y)
+  | checkForAnyPart canJump lvl (size_x + 1, 1) pos 
+    = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
+  | otherwise = player
   where
-    (pos_x, pos_y) = pos
-    new_vel = (vel_x + off_x, vel_y + off_y)
+    (size_x, _) = (getSize kind)
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
@@ -314,7 +317,7 @@ tryMove dt level object@(MovingObject kind old_pos@(old_x, old_y) _ _)
   | otherwise
   = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
   where
-    canMoveAtThisLvl = canThisBigObjectMove level (getSize kind)
+    canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject
       _ (new_x, new_y) (vel_x, vel_y) (accel_x, accel_y)) = move dt object
 
@@ -322,11 +325,25 @@ tryMove dt level object@(MovingObject kind old_pos@(old_x, old_y) _ _)
     isPlayer SmallPlayer = True
     isPlayer _ = False
 
--- | Checks if the complex `MovingObject` can move at given position.
-canThisBigObjectMove :: Level -> Size -> Position -> Bool
-canThisBigObjectMove lvl (size_x, size_y) (pos_x, pos_y)
-  = foldr1 (&&)
-  (map (\(x, y) -> canMove lvl (pos_x + x*minObjSize, pos_y + y*minObjSize))
+-- | Checks the given bool exression for all parts of given body size.
+-- Returns `True` only if all body parts satisfy given expression.
+checkforAllParts :: (a -> Position -> Bool)
+                -> a -> Size -> Position -> Bool
+checkforAllParts = checkForParts (&&)
+
+-- | Checks the given bool exression for all parts of given body size.
+-- Returns `True` if at least one body part satisfy given expression.
+checkForAnyPart :: (a -> Position -> Bool)
+  -> a -> Size -> Position -> Bool
+checkForAnyPart = checkForParts (||)
+
+-- | Checks the given bool exression for all parts of given body size.
+checkForParts :: (Bool -> Bool -> Bool)
+             -> (a -> Position -> Bool)  
+             -> a -> Size -> Position -> Bool
+checkForParts boolFun posFun lvl (size_x, size_y) (pos_x, pos_y) 
+  = foldr1 boolFun
+  (map (\(x, y) -> posFun lvl (pos_x + x*minObjSize, pos_y + y*minObjSize))
   [(a, b)|a <- [0..size_x - 1], b <- [0..size_y - 1]])
 
 -- | Checks if the simple `MovingObject` can move at this position.
@@ -370,16 +387,16 @@ drawGame assets (Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
   in
-    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLevel assets level))
+    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLvl assets level))
     <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
     <> scale gameScale gameScale (drawObject assets player)
 
 -- | Draw the level.
-drawLevel :: Assets -> Level -> Picture
-drawLevel assets [] = blank
-drawLevel assets (l:ls)
+drawLvl :: Assets -> Level -> Picture
+drawLvl assets [] = blank
+drawLvl assets (l:ls)
   = drawLine assets l
-  <> (translate 0 (tileSize) (drawLevel assets ls))
+  <> (translate 0 (tileSize) (drawLvl assets ls))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
