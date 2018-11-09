@@ -161,13 +161,13 @@ initObjects =
 -- ------------------------ Working with map ------------------------ --
 
 -- | Safely take the tile with given indexes from the level.
-takeTileFromLvl :: Level -> Integer -> Integer -> Maybe Tile
+takeTileFromLvl :: [[a]] -> Integer -> Integer -> Maybe a
 takeTileFromLvl [] _ _ = Nothing
 takeTileFromLvl (l:_) pos_x 0 = takeTileFromList l pos_x
 takeTileFromLvl (_:ls) pos_x pos_y = takeTileFromLvl ls pos_x (pos_y - 1)
 
 -- | Safely take tile from the tile row.
-takeTileFromList :: [Tile] -> Integer -> Maybe Tile
+takeTileFromList :: [a] -> Integer -> Maybe a
 takeTileFromList [] _ = Nothing
 takeTileFromList (l:_) 0 = Just l
 takeTileFromList (_:ls) n = takeTileFromList ls (n - 1)
@@ -200,7 +200,7 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
 checkCollision game@(Game levels player _ state)
-  | pos_x - fromIntegral x < fromIntegral x_r - pos_x =
+  | pos_x - (fromIntegral x)*tileSize < (fromIntegral x_r)*tileSize - pos_x =
     case takeTileFromLvl level x y of
       Nothing -> case takeTileFromLvl level x_r y of
         Nothing -> game
@@ -215,7 +215,7 @@ checkCollision game@(Game levels player _ state)
     
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
-    (x_r, _) = mapPosToCoord (pos_x + (snd (getSize kind)), pos_y)
+    (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (pos_x, pos_y) = pos
     (MovingObject kind pos _ _ ) = player
     level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
@@ -387,16 +387,16 @@ drawGame assets (Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
   in
-    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLevel assets level))
+    translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLvl assets level))
     <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
     <> scale gameScale gameScale (drawObject assets player)
 
 -- | Draw the level.
-drawLevel :: Assets -> Level -> Picture
-drawLevel assets [] = blank
-drawLevel assets (l:ls)
+drawLvl :: Assets -> Level -> Picture
+drawLvl assets [] = blank
+drawLvl assets (l:ls)
   = drawLine assets l
-  <> (translate 0 (tileSize) (drawLevel assets ls))
+  <> (translate 0 (tileSize) (drawLvl assets ls))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
