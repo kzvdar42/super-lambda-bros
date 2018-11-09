@@ -358,8 +358,8 @@ checkForParts
   -> Bool
 checkForParts boolFun posFun lvl (size_x, size_y) (pos_x, pos_y)
   = foldr1 boolFun
-    (map (\(x, y) -> posFun lvl (pos_x + x * minObjSize, pos_y + y * minObjSize))
-    [(a, b) | a <- [0 .. size_x - 1], b <- [0 .. size_y - 1]])
+  (map (\(x, y) -> posFun lvl (pos_x + x * minObjSize, pos_y + y * minObjSize))
+  [(a, b) | a <- [0 .. size_x - 1], b <- [0 .. size_y - 1]])
 
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: Level -> Position -> Bool
@@ -429,7 +429,7 @@ drawTile assets Empty = color white (rectangleSolid tileSize tileSize)
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
 drawObject assets (MovingObject objType (pos_x, pos_y) _ _)
-  = translate (pos_x + size_x/2) (pos_y + size_y/2) (drawKind assets objType)
+  = translate (pos_x + size_x / 2) (pos_y + size_y / 2) (drawKind assets objType)
   where
     (size_x, size_y) = getSize objType
 
