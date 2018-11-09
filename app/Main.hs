@@ -40,4 +40,4 @@ main = do
     let enemyObj = map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..1]))
     enemySprites <- sequence enemyObj
     let assets = Assets marioSprites envSprites enemySprites
-    play (InWindow "Test" (800,600) (0,0)) black 60 initGame (drawGame assets) handleGame updateGame
+    play (InWindow "Test" (800,600) (0,0)) white 60 initGame (drawGame assets) handleGame updateGame

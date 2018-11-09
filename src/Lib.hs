@@ -69,7 +69,7 @@ minObjSize = 0.8*tileSize
 
 -- | Size of the text.
 textScale::Float
-textScale = 0.01
+textScale = 0.01 * tileSize
 
 -- | Game scale.
 gameScale::Float
@@ -386,10 +386,20 @@ drawGame :: Assets -> Game -> Picture
 drawGame assets (Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
+    (MovingObject _ pos@(pos_x, pos_y) _ _) = player
+    (сoord_x, coord_y) = mapPosToCoord pos
+    (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
+    txtScale = tileSize*gameScale
   in
     translate (gameScale * tileSize / 2) (gameScale * tileSize / 2) (scale gameScale gameScale (drawLvl assets level))
     <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
     <> scale gameScale gameScale (drawObject assets player)
+    <> translate 0 (-txtScale*2) (scale textScale textScale
+    ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
+    <> translate (txtScale*2) (-txtScale*2) (scale textScale textScale
+    ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
+    <> translate (txtScale*6) (-txtScale*2) (scale textScale textScale
+    ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
