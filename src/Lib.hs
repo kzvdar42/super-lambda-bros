@@ -189,6 +189,7 @@ updateRow [] _ _ = []
 updateRow (_:ls) 0 tile = tile : ls
 updateRow (l:ls) n tile = l : updateRow ls (n - 1) tile
 
+-- | Translate position to the coords for the map.
 mapPosToCoord :: Vector2 -> (Integer, Integer)
 mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 
@@ -197,15 +198,26 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
-checkCollision game@(Game levels player _ state) =
-  case takeTileFromLvl level x y of
-    Nothing -> game
-    Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
+checkCollision game@(Game levels player _ state)
+  | pos_x - fromIntegral x < fromIntegral x_r - pos_x =
+    case takeTileFromLvl level x y of
+      Nothing -> case takeTileFromLvl level x_r y of
+        Nothing -> game
+        Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
+      Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
+  | otherwise =
+    case takeTileFromLvl level x_r y of
+      Nothing -> case takeTileFromLvl level x y of
+        Nothing -> game
+        Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
+      Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
+    
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
+    (x_r, _) = mapPosToCoord (pos_x + (snd (getSize kind)), pos_y)
     (pos_x, pos_y) = pos
     (MovingObject kind pos _ _ ) = player
-    level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
+    level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
 
 -- | Perform the collisions.
 -- Right now the implementation is fixed to the position of the player.
