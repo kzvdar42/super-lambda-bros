@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
 
--- Comment this line with module to run this file on `CodeWorld`.
 module Lib where
 
 -- Graphics
@@ -25,7 +24,7 @@ data GameState = GameState
   , gameStateNextLvlNum  :: Maybe Int
   }
 
--- | Game.
+-- | Game.       Levels  Player       Level Objects  State
 data Game = Game [Level] MovingObject [MovingObject] GameState
 
 -- Objects.
@@ -34,6 +33,7 @@ type Position = Vector2
 type Velocity = Vector2
 type Acceleration = Vector2
 type Size = Vector2
+
 
 -- | Data type for the objects o the level.
 data MovingObject
@@ -53,7 +53,7 @@ data Kind
   | Shell
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Position | Change Tile | Stay
+data CollisionType = Delete | Spawn Kind Position | Change Tile
 
 -- ------------------------ Game scale ------------------------ --
 
@@ -87,7 +87,7 @@ tileFrictionRate _ = 0.05
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (1 * tileSize, 4 * tileSize)
+step = (1 * tileSize, 8 * tileSize)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
@@ -104,7 +104,7 @@ typeOfCollision :: Tile -> [CollisionType]
 typeOfCollision Brick = [Delete]
 typeOfCollision BonusBlockActive
   = [Spawn Mushroom (0, 1 * tileSize), Change BonusBlockEmpty]
-typeOfCollision _ = [Stay]
+typeOfCollision _ = []
 
 -- | Get size of `MovingObject of given Kind.
 getSize :: Kind -> Size
@@ -131,7 +131,6 @@ sampleLevel =
   , Brick  : take 15 (makeTiles Empty) ++ [Brick]
   , Brick  : take 3  (makeTiles Empty) ++ take 2  (makeTiles Brick)
     ++ [BonusBlockActive] ++ take 9  (makeTiles Brick) ++ [Brick]
---, Brick  : take 15 (makeTiles Empty) ++ [Brick]
   , Brick  : take 15 (makeTiles Empty) ++ [Brick]
   , Brick  : take 3 (makeTiles Empty) ++ [Brick]
     ++ take 11 (makeTiles Empty) ++ [Brick]
@@ -161,10 +160,10 @@ initObjects =
 -- ------------------------ Working with map ------------------------ --
 
 -- | Safely take the tile with given indexes from the level.
-takeTileFromLevel :: Level -> Integer -> Integer -> Maybe Tile
-takeTileFromLevel [] _ _ = Nothing
-takeTileFromLevel (l:_) pos_x 0 = takeTileFromList l pos_x
-takeTileFromLevel (_:ls) pos_x pos_y = takeTileFromLevel ls pos_x (pos_y - 1)
+takeTileFromLvl :: Level -> Integer -> Integer -> Maybe Tile
+takeTileFromLvl [] _ _ = Nothing
+takeTileFromLvl (l:_) pos_x 0 = takeTileFromList l pos_x
+takeTileFromLvl (_:ls) pos_x pos_y = takeTileFromLvl ls pos_x (pos_y - 1)
 
 -- | Safely take tile from the tile row.
 takeTileFromList :: [Tile] -> Integer -> Maybe Tile
@@ -173,16 +172,16 @@ takeTileFromList (l:_) 0 = Just l
 takeTileFromList (_:ls) n = takeTileFromList ls (n - 1)
 
 -- | Update the level in the list.
-updateLevels :: [Level] -> Int -> (Integer, Integer) -> Tile -> [Level]
-updateLevels [] _ _ _ = []
-updateLevels (l:ls) 0 pos tile = updateLevel l pos tile : ls
-updateLevels (l:ls) n pos tile = l : updateLevels ls (n - 1) pos tile
+updateLvls :: [Level] -> Int -> (Integer, Integer) -> Tile -> [Level]
+updateLvls [] _ _ _ = []
+updateLvls (l:ls) 0 pos tile = updateLvl l pos tile : ls
+updateLvls (l:ls) n pos tile = l : updateLvls ls (n - 1) pos tile
 
 -- | Update the tile in the level.
-updateLevel :: Level -> (Integer, Integer) -> Tile -> Level
-updateLevel [] _ _ = []
-updateLevel (l:ls) (pos_x, 0) tile = updateRow l pos_x tile : ls
-updateLevel (l:ls) (pos_x, pos_y) tile = l : updateLevel ls (pos_x, pos_y - 1) tile
+updateLvl :: Level -> (Integer, Integer) -> Tile -> Level
+updateLvl [] _ _ = []
+updateLvl (l:ls) (pos_x, 0) tile = updateRow l pos_x tile : ls
+updateLvl (l:ls) (pos_x, pos_y) tile = l : updateLevel ls (pos_x, pos_y - 1) tile
 
 -- | Update the tile in the row.
 updateRow :: [Tile] -> Integer -> Tile -> [Tile]
@@ -195,12 +194,12 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 
 -- ------------------------ Physics ------------------------ --
 
--- | Check if there's some collisions.
+-- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
 checkCollision game@(Game levels player _ state) =
-  case takeTileFromLevel level x y of
-    Nothing -> game 
+  case takeTileFromLvl level x y of
+    Nothing -> game
     Just tile -> performCollisions (typeOfCollision tile) game
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
@@ -212,68 +211,61 @@ checkCollision game@(Game levels player _ state) =
 -- Right now the implementation is fixed to the position of the player.
 performCollisions :: [CollisionType] -> Game -> Game
 performCollisions [] game = game
-performCollisions (c:cs) game@(Game levels player objects state) =
+performCollisions (c:cs) (Game levels player objects state) =
   case c of
     Delete -> performCollisions cs
-      (Game (updateLevels levels levelNum (x + 1, y + 1) Empty) player objects state)
+      (Game (updateLvls levels levelNum (x, y + ceiling size_y) Empty) 
+      (MovingObject objKind pos (vel_x, -vel_y) (accel_x, g)) objects state)
     Spawn kind (off_x, off_y) -> performCollisions cs
       (Game levels player
-      ((MovingObject (fromIntegral x + off_x, fromIntegral y + off_y)
-      (1.0 * tileSize, 0.0) (0.0, 0.0) kind) : objects) state)
+      ((MovingObject kind (fromIntegral x + off_x, pos_y + size_y + off_y)
+      (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
     Change tile -> performCollisions cs
-      (Game (updateLevels levels levelNum (x + 1, y + 1) tile) player objects state)
-    Stay -> performCollisions cs game
+      (Game (updateLvls levels levelNum (x, y + ceiling size_y) tile) player objects state)
   where
-    (x, y) = mapCoordToPos pos
-    (MovingObject pos _ _ _) = player
+    (x, y) = mapPosToCoord pos
+    size_y = (snd . getSize) objKind
+    (MovingObject objKind pos@(_, pos_y) (vel_x, vel_y) (accel_x, _)) = player
     levelNum = gameStateLvlNum state
 
 -- | Apply gravity to the `MovingObject`.
 applyGravity :: MovingObject -> MovingObject
-applyGravity (MovingObject pos vel accel objKind)
-  = MovingObject pos vel (accel_x, accel_y - g) objKind
-  where
-    (accel_x, accel_y) = accel
+applyGravity (MovingObject kind pos vel (accel_x, accel_y))
+  = MovingObject kind pos vel (accel_x, accel_y - g)
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
-applyFriction level object@(MovingObject pos vel accel objKind) =
-  case takeTileFromLevel level (floor pos_x) (floor (pos_y - 0.01)) of
+applyFriction level object@(MovingObject kind pos (vel_x, vel_y) accel) =
+  case takeTileFromLvl level (floor pos_x) (floor (pos_y - 0.01)) of
     Nothing -> object
-    Just tile -> MovingObject pos (vel_x - vel_x*tileFrictionRate tile, vel_y)
-      accel objKind
+    Just tile ->
+      MovingObject kind pos (vel_x - vel_x*tileFrictionRate tile, vel_y) accel
   where
     (pos_x, pos_y) = pos
-    (vel_x, vel_y) = vel
 
 -- | Jump to the stars!
 makeJump :: Level -> MovingObject -> Vector2 -> MovingObject
-makeJump level player@(MovingObject pos vel accel kind) (off_x, off_y) =
-  case takeTileFromLevel level (floor pos_x) (floor (pos_y - 0.01))  of
+makeJump level player@(MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y) =
+  case takeTileFromLvl level (floor pos_x) (floor (pos_y - 0.01))  of
   Nothing -> player
   Just tile ->
-    if not (canPass tile) then MovingObject pos new_vel accel kind else player
+    if not (canPass tile) 
+      then MovingObject kind pos new_vel accel
+      else player
   where
     (pos_x, pos_y) = pos
-    (vel_x, vel_y) = vel
     new_vel = (vel_x + off_x, vel_y + off_y)
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
-changeSpeed (MovingObject pos vel accel kind) (off_x, off_y)
-  = MovingObject pos new_vel accel kind
-  where
-    (vel_x, vel_y) = vel
-    new_vel = (vel_x + off_x, vel_y + off_y)
+changeSpeed (MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y)
+  = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
 
 -- | Move Object due to it's velocity and acceleration.
 move :: Float -> MovingObject -> MovingObject
-move dt (MovingObject pos vel accel kind) =
-  MovingObject (new_x, new_y) (vel_x + accel_x, vel_y + accel_y) accel kind
+move dt (MovingObject kind  (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_y)) =
+  MovingObject kind (new_x, new_y) (vel_x + accel_x, vel_y + accel_y) accel
   where
-    (pos_x, pos_y) = pos
-    (vel_x, vel_y) = vel
-    (accel_x, accel_y) = accel
     new_x = pos_x + vel_x * dt + accel_x * dt ** 2 / 2
     new_y = pos_y + vel_y * dt + accel_y * dt ** 2 / 2
 
@@ -293,7 +285,7 @@ updateGame dt (Game levels player objects state) =
   where
     level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
     upd_player
-      = (applyFriction level . applyGravity . tryMove dt level) player
+      = (tryMove dt level . applyFriction level . applyGravity) player
     upd_objects = map (applyGravity . tryMove dt level) objects
 
 -- | Try to move thethe `MovingObject` by given offset.
@@ -361,7 +353,7 @@ handleGame _ game  = game
 
 -- ------------------------ Drawing the game ------------------------ --
 
--- | Draw the gane.
+-- | Draw the game.
 drawGame :: Game -> Picture
 drawGame (Game levels player objects state) =
   let
@@ -425,9 +417,3 @@ drawKind Shell
   = scale tileSize tileSize 
   (color green (rectangleSolid (fst (getSize Shell)) (snd (getSize Shell))))
 
--- | Draw object.
-drawObject :: MovingObject -> Picture
-drawObject (MovingObject pos _ _ objType)
-  = translate pos_x pos_y (drawKind objType)
-  where
-    (pos_x, pos_y) = pos
