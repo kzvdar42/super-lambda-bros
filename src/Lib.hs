@@ -9,6 +9,7 @@ import qualified Graphics.Gloss.Interface.Pure.Game as G
 import Data.Fixed (div', mod')
 -- Sets with O(log n)
 import qualified Data.Set as S
+
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
@@ -60,7 +61,7 @@ data Kind
 data CollisionType = Delete | Spawn Kind Coord | Change Tile
 
 -- | Container with textures for objects
-data Assets = Assets 
+data Assets = Assets
   { marioSprites :: [Picture]
   , envSprites   :: [Picture]
   , enemySprites :: [Picture]
@@ -206,7 +207,7 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 
 -- | Translate position to the coords for the map.
 mapCoordToPos :: Coord -> Position
-mapCoordToPos (x, y) 
+mapCoordToPos (x, y)
   = (fromIntegral x * tileSize, fromIntegral y * tileSize)
 
 -- ------------------------ Physics ------------------------ --
@@ -227,7 +228,6 @@ checkCollision game@(Game levels player _ state)
         Nothing -> game
         Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
       Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
-
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
@@ -362,9 +362,9 @@ checkForParts :: (Bool -> Bool -> Bool) -> Bool
               -> (a -> Position -> Bool)
               -> a -> Size -> Position -> Bool
 checkForParts boolFun base posFun lvl size (pos_x, pos_y)
-  = foldr boolFun base
-  (map (\(x, y) -> posFun lvl (pos_x + fromIntegral(x)*minObjSize, pos_y + fromIntegral(y)*minObjSize))
-    [(a, b)|a <- [0..count_x], b <- [0..count_y]])
+  = foldr boolFun base (map
+    (\(x, y) -> posFun lvl (pos_x + fromIntegral(x) * minObjSize, pos_y + fromIntegral(y) * minObjSize))
+    [(a, b) | a <- [0 .. count_x], b <- [0 .. count_y]])
   where
     (count_x, count_y) = mapPosToCoord size
 
@@ -407,7 +407,7 @@ handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyLeft <- key
   , G.Up                   <- keyState
   = Game lvls player obj (state {pressedKeys = (S.delete LEFT_BUTTON (pressedKeys state))})
-  
+
   -- = Game levels (changeSpeed player (- fst step, 0.0)) objects state
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyRight <- key
@@ -438,11 +438,11 @@ drawGame assets (Game levels player objects state) =
     <> scale gameScale gameScale (drawObject assets player)
     <> translate (-tileSize) (-tileSize) (testInput state)
     <> translate 0 (-txtScale*2) (scale textScale textScale
-    ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
+      ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
     <> translate (txtScale*2) (-txtScale*2) (scale textScale textScale
-    ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
+      ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
     <> translate (txtScale*6) (-txtScale*2) (scale textScale textScale
-    ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
+      ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
@@ -457,7 +457,6 @@ drawLine assets [] = blank
 drawLine assets (tile:tiles)
   = drawTile assets tile
  <> translate tileSize 0 (drawLine assets tiles)
-
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
@@ -482,11 +481,11 @@ drawKind assets Mushroom = (enemySprites assets) !! 0
 drawKind assets Star = (enemySprites assets) !! 0
 drawKind assets Shell = (enemySprites assets) !! 0
 
--- centered::Picture->Picture
+-- centered :: Picture -> Picture
 -- centered (Bitmap BitmapData)
 -- centered other = other
 
--- animated::Float->
- 
-testInput::GameState->Picture
+-- animated :: Float ->
+
+testInput :: GameState -> Picture
 testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))
