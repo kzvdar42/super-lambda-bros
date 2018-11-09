@@ -92,7 +92,7 @@ step = (1 * tileSize, 8 * tileSize)
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.05 * tileSize
+thresh = 0.1 * tileSize
 
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
@@ -181,7 +181,7 @@ updateLvls (l:ls) n pos tile = l : updateLvls ls (n - 1) pos tile
 updateLvl :: Level -> (Integer, Integer) -> Tile -> Level
 updateLvl [] _ _ = []
 updateLvl (l:ls) (pos_x, 0) tile = updateRow l pos_x tile : ls
-updateLvl (l:ls) (pos_x, pos_y) tile = l : updateLevel ls (pos_x, pos_y - 1) tile
+updateLvl (l:ls) (pos_x, pos_y) tile = l : updateLvl ls (pos_x, pos_y - 1) tile
 
 -- | Update the tile in the row.
 updateRow :: [Tile] -> Integer -> Tile -> [Tile]
@@ -200,7 +200,7 @@ checkCollision :: Game -> Game
 checkCollision game@(Game levels player _ state) =
   case takeTileFromLvl level x y of
     Nothing -> game
-    Just tile -> performCollisions (typeOfCollision tile) game
+    Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (pos_x, pos_y) = pos
@@ -209,23 +209,21 @@ checkCollision game@(Game levels player _ state) =
 
 -- | Perform the collisions.
 -- Right now the implementation is fixed to the position of the player.
-performCollisions :: [CollisionType] -> Game -> Game
+performCollisions :: [(CollisionType, (Integer, Integer))] -> Game -> Game
 performCollisions [] game = game
 performCollisions (c:cs) (Game levels player objects state) =
   case c of
-    Delete -> performCollisions cs
-      (Game (updateLvls levels levelNum (x, y + ceiling size_y) Empty) 
+    (Delete, tile_pos) -> performCollisions cs
+      (Game (updateLvls levels levelNum tile_pos Empty) 
       (MovingObject objKind pos (vel_x, -vel_y) (accel_x, g)) objects state)
-    Spawn kind (off_x, off_y) -> performCollisions cs
+    (Spawn kind (off_x, off_y), (tile_x, tile_y)) -> performCollisions cs
       (Game levels player
-      ((MovingObject kind (fromIntegral x + off_x, pos_y + size_y + off_y)
+      ((MovingObject kind (fromIntegral tile_x + off_x, fromIntegral tile_y + off_y)
       (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
-    Change tile -> performCollisions cs
-      (Game (updateLvls levels levelNum (x, y + ceiling size_y) tile) player objects state)
+    (Change tile, tile_pos) -> performCollisions cs
+      (Game (updateLvls levels levelNum tile_pos tile) player objects state)
   where
-    (x, y) = mapPosToCoord pos
-    size_y = (snd . getSize) objKind
-    (MovingObject objKind pos@(_, pos_y) (vel_x, vel_y) (accel_x, _)) = player
+    (MovingObject objKind pos (vel_x, vel_y) (accel_x, _)) = player
     levelNum = gameStateLvlNum state
 
 -- | Apply gravity to the `MovingObject`.
