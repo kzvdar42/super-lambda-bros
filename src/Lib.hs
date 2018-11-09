@@ -262,10 +262,15 @@ applyFriction level object@(MovingObject kind pos (vel_x, vel_y) accel) =
 
 -- | Check if the object can jump from this position.
 canJump :: Level -> Position -> Bool
-canJump lvl (pos_x, pos_y) = 
-  case takeTileFromLvl lvl (mapPosToCoord (pos_x, (pos_y - 0.01)))  of
-    Nothing -> False
-    Just tile -> if not (canPass tile) then True else False
+canJump lvl (pos_x, pos_y) =
+  case (left_bot, right_bot) of
+    (Nothing, Nothing) -> False
+    (Just l_tile, Just r_tile) -> not (canPass l_tile && canPass r_tile)
+    where
+      left_bot = takeTileFromLvl lvl (x, y)
+      right_bot = takeTileFromLvl lvl (x_r, y)
+      (x, y) = mapPosToCoord (pos_x, pos_y-0.01)
+      (x_r, _) = mapPosToCoord (pos_x + minObjSize, 0)
 
 -- | Jump to the stars!
 makeJump :: Level -> MovingObject -> Position -> MovingObject
