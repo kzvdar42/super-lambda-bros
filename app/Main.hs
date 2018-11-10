@@ -11,37 +11,13 @@
 --         and doing vis based on center point of cell.
 --
 
-import Interface
-import Draw
-import State
-import World
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Interface.Environment (getScreenSize)
 import Lib
 
-main :: IO ()
--- main
---  = do   world           <- initialWorld
---         let state       =  initialState world
-        
---         play   FullScreen
---                black 60 state
---                drawState handleInput stepState
-
 drawTest :: Picture -> Game -> Picture
 drawTest pict _ = pict
-
-{-# LANGUAGE OverloadedStrings #-}
-
--- main::IO()
--- main = do
---     map <- (readMaps getTile ["map.txt","map.txt"])
---     let maps = fmap mapToString map
---     print maps
-
--- data Tile = A | B | C
--- type TileMap = Level
 
 readMaps :: (Char -> Tile) -> [String] -> IO [Level]
 readMaps parse filenames = sequence $ map (readMap parse) filenames
@@ -71,6 +47,7 @@ getTile num
 
 reverseList xs = foldl (\x y -> y:x) [] xs 
 
+main :: IO ()
 main = do
     screenResolution <- getScreenSize
     print $ "Screen Resolution: " ++ (show screenResolution)

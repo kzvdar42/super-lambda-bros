@@ -439,52 +439,51 @@ drawGame assets res game@(Game levels player objects state) =
     gameScale = gameScaleFactor * (snd fres) / mapHeight
     textScale = textScaleFactor * gameScale
     lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
+    -- | Debug output.
     (MovingObject _ pos@(pos_x, pos_y) _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
-    charSize = 1.2 * tileSize * gameScale
-    txtOff = 7 * charSize
+    charSize = 150 * textScale
+    -- textScaleFactor = 0.008 * tileSize
+    coordOffset = 2 * charSize
+    floatOffset = 6 * charSize
     showScaledText str = scale textScale textScale (text (show str))
     inputEvents = pictures $ map (\(t, p) -> t p)
-      (zip (map (\y -> translate 0.0 (-y * charSize)) [0..]) 
+      (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
         (map (showScaledText) (S.elems (pressedKeys state)))
       )
-    preComposed = drawLvl assets lvl
-        <> pictures (map (drawObject assets) objects)
-        <> drawObject assets player
-    composed = scale gameScale gameScale preComposed
-      --  | Debug output.
-    debug = translate 0 (-2 * gameScale * tileSize)
+    debug = translate 0 (-gameScale * tileSize - charSize)
       (  translate 0 0
           (showScaledText сoord_x
           <> translate 0 (-charSize) (showScaledText coord_y)
           )
-      <> translate (2 * charSize) 0
+      <> translate coordOffset 0
           (showScaledText pos_x
           <> translate 0 (-charSize) (showScaledText pos_y)
           )
-      <> translate (2 * charSize + txtOff) 0
+      <> translate (coordOffset + floatOffset) 0
           (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
-      <> translate 0  (-2 * charSize) inputEvents
+      <> translate 0  (-coordOffset) inputEvents
       )
+    preComposed = drawLvl assets lvl
+      <> pictures (map (drawObject assets) objects)
+      <> drawObject assets player
+    composed = scale gameScale gameScale preComposed
     fres = getFloating res
     mapHeight = getMapHeight game
-    adjustedMapHeight = gameScale * (mapHeight + tileSize / 2)
     composedRelative = alignWorldToX ((*) gameScale $ fst pos) (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
   in
-    composedRelative <> centerPictureY mapHeight gameScale debug
-     -- TODO link offsets to maps
+    composedRelative
+    <> translate (-(coordOffset + 2*floatOffset)/2) 0
+      (centerPictureY mapHeight gameScale debug)
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
 drawLvl _ [] = blank
-drawLvl assets lines
+drawLvl assets rows
   = pictures $ map (\(t, p) -> t p)
   (zip (map (\y -> translate 0 (y * tileSize)) [0..]) 
-    (map (drawLine assets) (lines)))
-    
---     drawLine assets l
---  <> (translate 0 (tileSize) (drawLvl assets ls))
+    (map (drawLine assets) (rows)))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
@@ -493,9 +492,6 @@ drawLine assets tiles
   = pictures $ map (\(t, p) -> t p)
   (zip (map (\y -> translate (y * tileSize) 0) [0..]) 
     (map (drawTile assets) (tiles)))
-    
---     drawTile assets tile
---  <> translate tileSize 0 (drawLine assets tiles)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
