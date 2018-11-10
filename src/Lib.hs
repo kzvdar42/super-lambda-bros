@@ -92,12 +92,12 @@ g = 0.01 * tileSize
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
-tileFrictionRate Empty = 0
+tileFrictionRate Empty = 0.02
 tileFrictionRate _ = 0.05
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (1 * tileSize, 8 * tileSize)
+step = ( 0.2 * tileSize, 8 * tileSize)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
@@ -311,16 +311,31 @@ initGame = Game [sampleLevel] initPlayer initObjects initState
 
 -- | Physics of the game.
 updateGame :: Float -> Game -> Game
-updateGame dt (Game levels player objects state) =
+updateGame dt (Game lvls player objects state) =
   case gameStateNextLvlNum state of
-    Nothing -> checkCollision (Game levels upd_player upd_objects state)
-    Just nextLevel -> Game levels upd_player upd_objects
+    Nothing -> checkCollision (Game lvls upd_player upd_objects state)
+    Just nextLevel -> Game lvls upd_player upd_objects
       (state {gameStateLvlNum = nextLevel, gameStateNextLvlNum = Nothing})
   where
-    level = levels !! gameStateLvlNum state -- TODO: make this is a safe way.
-    upd_player
-      = (tryMove dt level . applyFriction level . applyGravity) player
-    upd_objects = map (tryMove dt level . applyGravity) objects
+    lvl = lvls !! gameStateLvlNum state -- TODO: make this is a safe way.
+    upd_player = 
+      (tryMove dt lvl 
+      . applyFriction lvl . applyGravity
+      . performActions (S.toList (pressedKeys state)) lvl) player
+    upd_objects = map (tryMove dt lvl . applyGravity) objects
+
+-- | Apply all provided actions on the player.
+performActions :: [Movement] -> Level -> MovingObject -> MovingObject
+performActions [] _ = id
+performActions ms lvl = foldr (.) id (map (performAction lvl) ms)
+
+-- | Apply single action on the player.
+performAction :: Level -> Movement -> MovingObject -> MovingObject
+performAction lvl UP_BUTTON player = makeJump lvl player (0.0, snd step)
+performAction _ DOWN_BUTTON player = player
+performAction _ LEFT_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction _ RIGHT_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction _ SPECIAL_BUTTON player = player
 
 -- | Try to move thethe `MovingObject` by given offset.
 tryMove :: Float -> Level -> MovingObject -> MovingObject
@@ -389,36 +404,26 @@ handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyUp <- key
   , G.Down               <- keyState
   = Game lvls player obj (state {pressedKeys = (S.insert UP_BUTTON (pressedKeys state))})
-
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyUp <- key
   , G.Up                 <- keyState
   = Game lvls player obj (state {pressedKeys = (S.delete UP_BUTTON (pressedKeys state))})
-    -- Game levels (makeJump level player (0.0, snd step)) objects  state
-    -- where
-    --   level = levels !! gameStateLvlNum state -- TODO: make this safe.
-
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyLeft <- key
   , G.Down                 <- keyState
   = Game lvls player obj (state {pressedKeys = (S.insert LEFT_BUTTON (pressedKeys state))})
-
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyLeft <- key
   , G.Up                   <- keyState
   = Game lvls player obj (state {pressedKeys = (S.delete LEFT_BUTTON (pressedKeys state))})
-  
-  -- = Game levels (changeSpeed player (- fst step, 0.0)) objects state
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyRight <- key
   , G.Down                  <- keyState
   = Game lvls player obj (state {pressedKeys = (S.insert RIGHT_BUTTON (pressedKeys state))})
-
 handleGame (G.EventKey key keyState _ _) (Game lvls player obj state)
   | G.SpecialKey G.KeyRight <- key
   , G.Up                  <- keyState
   = Game lvls player obj (state {pressedKeys = (S.delete RIGHT_BUTTON (pressedKeys state))})
-  -- = Game levels (changeSpeed player (fst step, 0.0)) objects state
 handleGame _ game  = game
 
 -- ------------------------ Drawing the game ------------------------ --
@@ -460,14 +465,14 @@ drawGame assets (Game levels player objects state) =
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
-drawLvl assets [] = blank
+drawLvl _ [] = blank
 drawLvl assets (l:ls)
   = drawLine assets l
  <> (translate 0 (tileSize) (drawLvl assets ls))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
-drawLine assets [] = blank
+drawLine _ [] = blank
 drawLine assets (tile:tiles)
   = drawTile assets tile
  <> translate tileSize 0 (drawLine assets tiles)
@@ -475,11 +480,11 @@ drawLine assets (tile:tiles)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
-drawTile assets Brick = (envSprites assets)!!0 -- color red (rectangleSolid tileSize tileSize)
-drawTile assets Ground = (envSprites assets)!!1 -- color orange (rectangleSolid tileSize tileSize)
-drawTile assets BonusBlockActive = (envSprites assets)!!2
-drawTile assets BonusBlockEmpty = (envSprites assets)!!3
-drawTile assets Empty = color white (rectangleSolid tileSize tileSize)
+drawTile assets Brick = (envSprites assets) !! 0
+drawTile assets Ground = (envSprites assets) !! 1
+drawTile assets BonusBlockActive = (envSprites assets) !! 2
+drawTile assets BonusBlockEmpty = (envSprites assets) !! 3
+drawTile _ Empty = color blue (rectangleSolid tileSize tileSize)
 
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
@@ -501,5 +506,3 @@ drawKind assets Shell = (enemySprites assets) !! 0
 -- centered other = other
 
 -- animated::Float->
-testInput::GameState->Picture
-testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))
