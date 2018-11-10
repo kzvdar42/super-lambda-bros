@@ -340,20 +340,22 @@ performAction _ SPECIAL_BUTTON player = player
 
 -- | Try to move thethe `MovingObject` by given offset.
 tryMove :: Float -> Level -> MovingObject -> MovingObject
-tryMove dt level object@(MovingObject kind old_pos@(old_x, old_y) _ _)
-  | canMoveAtThisLvl (new_x, new_y) = new_obj
-  | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y))
-  | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y))
-  | canMoveAtThisLvl (new_x, old_y)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0))
-  | isPlayer kind
-    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0)
-  | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
-  where
-    canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
+tryMove dt level 
+  object@(MovingObject kind old_pos@(old_x, old_y) 
+  (vel_x, vel_y) (accel_x, accel_y))
+    | canMoveAtThisLvl (new_x, new_y) = new_obj
+    | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
+      = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y))
+    | canMoveAtThisLvl (old_x, new_y)
+      = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y))
+    | canMoveAtThisLvl (new_x, old_y)
+      = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0))
+    | isPlayer kind
+      = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0)
+    | otherwise
+      = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
+    where
+      canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) (vel_x, vel_y) (accel_x, accel_y))
       = move dt object
 
