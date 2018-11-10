@@ -261,13 +261,14 @@ applyGravity (MovingObject kind pos vel (accel_x, accel_y))
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
-applyFriction level object@(MovingObject kind pos (vel_x, vel_y) accel) =
-  case takeTileFromLvl level (mapPosToCoord (pos_x, pos_y - 0.01)) of
-    Nothing -> object
-    Just tile ->
-      MovingObject kind pos (vel_x - vel_x * tileFrictionRate tile, vel_y) accel
+applyFriction lvl object@(MovingObject kind pos (vel_x, vel_y) accel)
+  = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel
   where
-    (pos_x, pos_y) = pos
+    allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
+    takeFriction level (tile_x, tile_y) =
+      case takeTileFromLvl level (mapPosToCoord (tile_x, tile_y - 0.01)) of
+        Nothing -> 0
+        Just tile -> tileFrictionRate tile
 
 -- | Check if the object can jump from this position.
 canJump :: Level -> Position -> Bool
@@ -364,19 +365,19 @@ tryMove dt level object@(MovingObject kind old_pos@(old_x, old_y) _ _)
 -- Returns `True` only if all body parts satisfy given expression.
 checkforAllParts :: (a -> Position -> Bool)
                  -> a -> Size -> Position -> Bool
-checkforAllParts = checkForParts (&&) True
+checkforAllParts = applyToParts (&&) True
 
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` if at least one body part satisfy given expression.
 checkForAnyPart :: (a -> Position -> Bool)
                 -> a -> Size -> Position -> Bool
-checkForAnyPart = checkForParts (||) False
+checkForAnyPart = applyToParts (||) False
 
--- | Checks the given bool exression for all parts of given body size.
-checkForParts :: (Bool -> Bool -> Bool) -> Bool
-              -> (a -> Position -> Bool)
-              -> a -> Size -> Position -> Bool
-checkForParts boolFun base posFun lvl size (pos_x, pos_y)
+-- | Applies the given function to all parts of given body.
+applyToParts :: (b -> b -> b) -> b
+              -> (a -> Position -> b)
+              -> a -> Size -> Position -> b
+applyToParts boolFun base posFun lvl size (pos_x, pos_y)
   = foldr boolFun base
   (map (\(x, y) -> posFun lvl (pos_x + fromIntegral(x)*minObjSize, pos_y + fromIntegral(y)*minObjSize))
     [(a, b)|a <- [0..count_x], b <- [0..count_y]])
