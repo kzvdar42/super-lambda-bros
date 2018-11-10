@@ -9,6 +9,7 @@ import qualified Graphics.Gloss.Interface.Pure.Game as G
 import Data.Fixed (div', mod')
 -- Sets with O(log n)
 import qualified Data.Set as S
+
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
@@ -60,7 +61,7 @@ data Kind
 data CollisionType = Delete | Spawn Kind Coord | Change Tile
 
 -- | Container with textures for objects
-data Assets = Assets 
+data Assets = Assets
   { marioSprites :: [Picture]
   , envSprites   :: [Picture]
   , enemySprites :: [Picture]
@@ -206,7 +207,7 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 
 -- | Translate position to the coords for the map.
 mapCoordToPos :: Coord -> Position
-mapCoordToPos (x, y) 
+mapCoordToPos (x, y)
   = (fromIntegral x * tileSize, fromIntegral y * tileSize)
 
 -- ------------------------ Physics ------------------------ --
@@ -227,7 +228,6 @@ checkCollision game@(Game levels player _ state)
         Nothing -> game
         Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
       Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
-
   where
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
@@ -261,7 +261,7 @@ applyGravity (MovingObject kind pos vel (accel_x, accel_y))
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
-applyFriction lvl object@(MovingObject kind pos (vel_x, vel_y) accel)
+applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel)
   = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel
   where
     allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
@@ -478,7 +478,6 @@ drawLine assets (tile:tiles)
   = drawTile assets tile
  <> translate tileSize 0 (drawLine assets tiles)
 
-
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
 drawTile assets Brick = (envSprites assets) !! 0
@@ -502,7 +501,7 @@ drawKind assets Mushroom = (enemySprites assets) !! 0
 drawKind assets Star = (enemySprites assets) !! 0
 drawKind assets Shell = (enemySprites assets) !! 0
 
--- centered::Picture->Picture
+-- centered :: Picture -> Picture
 -- centered (Bitmap BitmapData)
 -- centered other = other
 
