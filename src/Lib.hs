@@ -460,9 +460,7 @@ drawGame assets (Game levels player objects state) =
           <> translate 0 (-charSize) (showScaledText pos_y)
           )
       <> translate (2 * charSize + txtOff) 0
-          (showScaledText off_x 
-          <> translate 0 (-charSize) (showScaledText off_y)
-          )
+          (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
       <> translate 0  (-2 * charSize) inputEvents
       )
 
