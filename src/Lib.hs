@@ -89,7 +89,7 @@ gameScale = 2
 
 -- | Gravity of the world.
 g :: Float
-g = 0.01 * tileSize
+g = 1.5 * tileSize
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
@@ -98,7 +98,7 @@ tileFrictionRate _ = 0.05
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (0.3 * tileSize, 8 * tileSize)
+step = (0.3 * tileSize, 7 * g)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
@@ -109,6 +109,11 @@ thresh = 0.1 * tileSize
 canPass :: Tile -> Bool
 canPass Empty = True
 canPass _ = False
+
+-- | Friction rate of the tiles.
+tileFrictionRate :: Tile -> Float
+tileFrictionRate Empty = 0.01
+tileFrictionRate _ = 0.05
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
@@ -254,9 +259,9 @@ performCollisions (c:cs) (Game lvls player objects state) =
     levelNum = gameStateLvlNum state
 
 -- | Apply gravity to the `MovingObject`.
-applyGravity :: MovingObject -> MovingObject
-applyGravity (MovingObject kind pos vel (accel_x, accel_y))
-  = MovingObject kind pos vel (accel_x, accel_y - g)
+applyGravity :: Float -> MovingObject -> MovingObject
+applyGravity dt (MovingObject kind pos vel (accel_x, accel_y))
+  = MovingObject kind pos vel (accel_x, accel_y - g * dt)
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
@@ -320,9 +325,9 @@ updateGame dt (Game lvls player objects state) =
     lvl = lvls !! gameStateLvlNum state -- TODO: make this is a safe way.
     upd_player = 
       (tryMove dt lvl 
-      . applyFriction lvl . applyGravity
+      . applyFriction lvl . applyGravity dt
       . performActions lvl (S.toList (pressedKeys state))) player
-    upd_objects = map (tryMove dt lvl . applyGravity) objects
+    upd_objects = map (tryMove dt lvl . applyGravity dt) objects
 
 -- | Apply all provided actions on the player.
 performActions :: Level -> [Movement] -> MovingObject -> MovingObject
@@ -336,9 +341,9 @@ performAction _ LEFT_BUTTON player = changeSpeed player (- fst step, 0.0)
 performAction _ RIGHT_BUTTON player = changeSpeed player (fst step, 0.0)
 performAction _ SPECIAL_BUTTON player = player
 
--- | Try to move thethe `MovingObject` by given offset.
+-- | Try to move the `MovingObject` by given offset.
 tryMove :: Float -> Level -> MovingObject -> MovingObject
-tryMove dt level 
+tryMove dt level
   object@(MovingObject kind old_pos@(old_x, old_y) 
   (vel_x, vel_y) (accel_x, accel_y))
     | canMoveAtThisLvl (new_x, new_y) = new_obj
