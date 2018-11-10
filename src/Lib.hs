@@ -273,8 +273,10 @@ applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel)
 canJump :: Level -> Position -> Bool
 canJump lvl (pos_x, pos_y) =
   case (left_bot, right_bot) of
-    (Nothing, Nothing) -> False
     (Just l_tile, Just r_tile) -> not (canPass l_tile && canPass r_tile)
+    (Nothing, Nothing) -> False
+    (Just l_tile, _) -> not $ canPass l_tile
+    (_, Just r_tile) -> not $ canPass r_tile
     where
       left_bot = takeTileFromLvl lvl (x, y)
       right_bot = takeTileFromLvl lvl (x_r, y)
@@ -308,8 +310,8 @@ move dt (MovingObject kind  (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_
 -- ------------------------ Game Engine ------------------------ --
 
 -- | Init state of the game.
-initGame :: Game
-initGame = Game [sampleLevel] initPlayer initObjects initState
+initGame :: [Level] -> Game
+initGame levels = Game levels initPlayer initObjects initState
 
 -- | Physics of the game.
 updateGame :: Float -> Game -> Game
@@ -451,7 +453,7 @@ drawGame assets res game@(Game levels player objects state) =
         <> pictures (map (drawObject assets) objects)
         <> drawObject assets player
     composed = scale gameScale gameScale preComposed
-        -- | Debug output.
+      --  | Debug output.
     debug = translate 0 (-2 * gameScale * tileSize)
       (  translate 0 0
           (showScaledText сoord_x
@@ -468,7 +470,7 @@ drawGame assets res game@(Game levels player objects state) =
     fres = getFloating res
     mapHeight = getMapHeight game
     adjustedMapHeight = gameScale * (mapHeight + tileSize / 2)
-    composedRelative = alignWorldToX ((*) gameScale $ fst $ getPlayerCoords game) (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
+    composedRelative = alignWorldToX ((*) gameScale $ fst pos) (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
   in
     composedRelative <> centerPictureY mapHeight gameScale debug
      -- TODO link offsets to maps
@@ -476,16 +478,24 @@ drawGame assets res game@(Game levels player objects state) =
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
 drawLvl _ [] = blank
-drawLvl assets (l:ls)
-  = drawLine assets l
- <> (translate 0 (tileSize) (drawLvl assets ls))
+drawLvl assets lines
+  = pictures $ map (\(t, p) -> t p)
+  (zip (map (\y -> translate 0 (y * tileSize)) [0..]) 
+    (map (drawLine assets) (lines)))
+    
+--     drawLine assets l
+--  <> (translate 0 (tileSize) (drawLvl assets ls))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
 drawLine _ [] = blank
-drawLine assets (tile:tiles)
-  = drawTile assets tile
- <> translate tileSize 0 (drawLine assets tiles)
+drawLine assets tiles
+  = pictures $ map (\(t, p) -> t p)
+  (zip (map (\y -> translate (y * tileSize) 0) [0..]) 
+    (map (drawTile assets) (tiles)))
+    
+--     drawTile assets tile
+--  <> translate tileSize 0 (drawLine assets tiles)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
@@ -515,10 +525,6 @@ getMapHeight :: Game -> Float
 getMapHeight (Game lvls _ _ state) = len * tileSize
       where len = fromIntegral (length (lvls!!(gameStateLvlNum state))) -- TODO make safe
 
--- | Extract player coordinates from game
-getPlayerCoords :: Game -> (Float, Float)
-getPlayerCoords (Game _ (MovingObject _ pos _ _) _ _) = pos
-
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
 centerPictureY height gameScale pic = translate 0 (gameScale * (-height + tileSize ) / 2 ) pic
@@ -534,11 +540,11 @@ alignWorldToX x (offsetL, offsetR)
     | x > offsetR = translate (-offsetR) 0
     | otherwise = translate (-x) 0
  
+-- | Calculate offsets to limit map drawing on sides
 getScreenOffset :: (Float, Float) -> Game -> Float -> (Float, Float)
-getScreenOffset (width, _) (Game levels _ _ _) gameScale = (offset, offset - size - tileSize*gameScale)
-    where offset = (width - tileSize*gameScale) / 2
-          size = gameScale * tileSize * (fromIntegral $ maximum (map length levels))
+getScreenOffset (width, _) (Game levels _ _ state) gameScale = (offset, size - offset - tileSize*gameScale)
+    where 
+      offset = (width - tileSize*gameScale) / 2
+      size = gameScale * tileSize * (fromIntegral $ length (lvl !! 0))
+      lvl = levels !! (gameStateLvlNum state)
 
--- | Debug feature for input visualisation
-testInput::GameState->Picture
-testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))

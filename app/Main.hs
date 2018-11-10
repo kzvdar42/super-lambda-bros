@@ -32,6 +32,45 @@ main :: IO ()
 drawTest :: Picture -> Game -> Picture
 drawTest pict _ = pict
 
+{-# LANGUAGE OverloadedStrings #-}
+
+-- main::IO()
+-- main = do
+--     map <- (readMaps getTile ["map.txt","map.txt"])
+--     let maps = fmap mapToString map
+--     print maps
+
+-- data Tile = A | B | C
+-- type TileMap = Level
+
+readMaps :: (Char -> Tile) -> [String] -> IO [Level]
+readMaps parse filenames = sequence $ map (readMap parse) filenames
+
+readMap :: (Char -> Tile) -> String -> IO [[Tile]]
+readMap parse filename = do
+    content <- (readFile filename)
+    let tilemap = reverseList [[parse sym | sym <- line] | line <- lines content]
+    return tilemap
+
+getTile :: Char -> Tile
+getTile num
+    | num == '0' = Empty
+    | num == '1' = Ground
+    | num == '2' = Brick
+    | num == '3' = BonusBlockActive
+    | num == '4' = BonusBlockEmpty
+    | otherwise = Empty
+
+-- mapToString :: TileMap -> [[String]]
+-- mapToString map = fmap (fmap tileToString) map
+
+-- tileToString :: Tile -> String
+-- tileToString A = "A"
+-- tileToString B = "B"
+-- tileToString C = "C"
+
+reverseList xs = foldl (\x y -> y:x) [] xs 
+
 main = do
     screenResolution <- getScreenSize
     print $ "Screen Resolution: " ++ (show screenResolution)
@@ -39,5 +78,7 @@ main = do
     envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..4]))
     enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..1]))
     
+    maps <- (readMaps getTile ["assets/maps/map_1.txt"])
+    
     let assets = Assets marioSprites envSprites enemySprites
-    play FullScreen white 60 initGame (drawGame assets screenResolution) handleGame updateGame
+    play FullScreen white 60 (initGame maps) (drawGame assets screenResolution) handleGame updateGame
