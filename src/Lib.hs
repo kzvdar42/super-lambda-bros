@@ -91,11 +91,6 @@ gameScale = 2
 g :: Float
 g = 1.5 * tileSize
 
--- | Friction rate of the tiles.
-tileFrictionRate :: Tile -> Float
-tileFrictionRate Empty = 0.01
-tileFrictionRate _ = 0.05
-
 -- | Step of Player (speed).
 step :: Vector2
 step = (0.3 * tileSize, 7 * g)
@@ -103,7 +98,7 @@ step = (0.3 * tileSize, 7 * g)
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.1 * tileSize
+thresh = 0.01 * tileSize
 
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
@@ -230,7 +225,7 @@ checkCollision game@(Game levels player _ state) =
   where
     level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
     (MovingObject kind (pos_x, pos_y) _ _ ) = player
-    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
+    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + (tileSize - minObjSize) - thresh)  -- TODO: change when will generalize minObjSize
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (x_close, x_far) =
       if pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x
@@ -251,11 +246,11 @@ performCollisions (c:cs) (Game lvls player objects state) =
           (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
     (Change tile, tile_pos) ->
       (Game (updateLvls lvls levelNum tile_pos tile) player objects state)
-    (Bounce, _) -> 
-      Game lvls (MovingObject kind (pos_x, pos_y - thresh) 
-        (vel_x, 0) (accel_x, g)) objects state
+    (Bounce, _) ->
+      Game lvls (MovingObject kind pos
+        (vel_x, -thresh) (accel_x, 0.0)) objects state
   where
-    (MovingObject kind (pos_x, pos_y) (vel_x, _) (accel_x, _)) = player
+    (MovingObject kind pos (vel_x, _) (accel_x, _)) = player
     levelNum = gameStateLvlNum state
 
 -- | Apply gravity to the `MovingObject`.
@@ -270,7 +265,7 @@ applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel)
   where
     allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
     takeFriction level (tile_x, tile_y) =
-      case takeTileFromLvl level (mapPosToCoord (tile_x, tile_y - 0.01)) of
+      case takeTileFromLvl level (mapPosToCoord (tile_x, tile_y - thresh)) of
         Nothing -> 0
         Just tile -> tileFrictionRate tile
 
@@ -283,17 +278,19 @@ canJump lvl (pos_x, pos_y) =
     where
       left_bot = takeTileFromLvl lvl (x, y)
       right_bot = takeTileFromLvl lvl (x_r, y)
-      (x, y) = mapPosToCoord (pos_x, pos_y - 0.01)
+      (x, y) = mapPosToCoord (pos_x, pos_y - thresh)
       (x_r, _) = mapPosToCoord (pos_x + minObjSize, 0)
 
 -- | Jump to the stars!
 makeJump :: Level -> MovingObject -> Position -> MovingObject
-makeJump lvl player@(MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y)
-  | checkForAnyPart canJump lvl (size_x + 1, 1) pos
-    = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
-  | otherwise = player
-  where
-    (size_x, _) = (getSize kind)
+makeJump lvl
+  player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, vel_y) accel) (off_x, off_y)
+    | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
+      = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
+    | otherwise = player
+    where
+      inAir = canMove lvl (pos_x + thresh, pos_y - thresh)
+      (size_x, _) = (getSize kind)
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
