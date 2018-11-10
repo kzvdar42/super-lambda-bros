@@ -78,7 +78,7 @@ minObjSize = 0.8 * tileSize
 
 -- | Size of the text.
 textScale::Float
-textScale = 0.01 * tileSize
+textScale = 0.008 * tileSize
 
 -- | Game scale.
 gameScale::Float
@@ -427,22 +427,36 @@ handleGame _ game  = game
 drawGame :: Assets -> Game -> Picture
 drawGame assets (Game levels player objects state) =
   let
-    level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
+    lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
     (MovingObject _ pos@(pos_x, pos_y) _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
-    txtScale = tileSize*gameScale
+    txtOff = tileSize * 10
+    inputEvents = pictures $ map (\(t, p) -> t p) 
+      (zip (map (\y -> translate 0.0 (-y*txtOff)) [0..]) 
+        (map (text.show) (S.elems (pressedKeys state)))
+      )
   in
-    (scale gameScale gameScale (drawLvl assets level))
+    (scale gameScale gameScale (drawLvl assets lvl))
     <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
     <> scale gameScale gameScale (drawObject assets player)
-    <> translate (-tileSize) (-tileSize) (testInput state)
-    <> translate 0 (-txtScale*2) (scale textScale textScale
-    ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
-    <> translate (txtScale*2) (-txtScale*2) (scale textScale textScale
-    ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
-    <> translate (txtScale*6) (-txtScale*2) (scale textScale textScale
-    ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
+    -- | Debug output.
+    <> translate 0 (-tileSize*2)
+      (translate 0  0 (scale textScale textScale
+        ((text (show сoord_x)) 
+        <> translate 0 (-txtOff) (text (show coord_y)))
+        )
+      <> translate (tileSize*2) 0 (scale textScale textScale
+        ((text (show pos_x))
+        <> translate 0 (-txtOff) (text (show pos_y)))
+        )
+      <> translate (tileSize*9) 0 (scale textScale textScale
+        ((text (show off_x)) 
+        <> translate 0 (-txtOff) (text (show off_y)))
+        )
+      <> translate 0  (-tileSize*2.2) 
+        (scale textScale textScale (inputEvents))
+      )
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
@@ -487,6 +501,5 @@ drawKind assets Shell = (enemySprites assets) !! 0
 -- centered other = other
 
 -- animated::Float->
- 
 testInput::GameState->Picture
 testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))
