@@ -58,7 +58,7 @@ data Kind
   | Shell
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Coord | Change Tile
+data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce
 
 -- | Container with textures for objects
 data Assets = Assets
@@ -93,12 +93,12 @@ g = 0.01 * tileSize
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
-tileFrictionRate Empty = 0.02
+tileFrictionRate Empty = 0.01
 tileFrictionRate _ = 0.05
 
 -- | Step of Player (speed).
 step :: Vector2
-step = ( 0.2 * tileSize, 8 * tileSize)
+step = (0.3 * tileSize, 8 * tileSize)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
@@ -112,20 +112,21 @@ canPass _ = False
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
-typeOfCollision Brick = [Delete]
+typeOfCollision Brick = [Delete, Bounce]
 typeOfCollision BonusBlockActive
-  = [Spawn Mushroom (0, 1), Change BonusBlockEmpty]
-typeOfCollision _ = []
+  = [Spawn Mushroom (0, 1), Change BonusBlockEmpty, Bounce]
+typeOfCollision Empty = []
+typeOfCollision _ = [Bounce]
 
 -- | Get size of `MovingObject of given Kind.
 getSize :: Kind -> Size
-getSize BigPlayer = (minObjSize, minObjSize*2)
+getSize BigPlayer =   (minObjSize, minObjSize * 2)
 getSize SmallPlayer = (minObjSize, minObjSize)
-getSize Gumba = (minObjSize, minObjSize)
-getSize Turtle = (minObjSize, minObjSize*2)
-getSize Mushroom = (minObjSize, minObjSize)
-getSize Star = (minObjSize, minObjSize)
-getSize Shell = (minObjSize, minObjSize)
+getSize Gumba =       (minObjSize, minObjSize)
+getSize Turtle =      (minObjSize, minObjSize * 2)
+getSize Mushroom =    (minObjSize, minObjSize)
+getSize Star =        (minObjSize, minObjSize)
+getSize Shell =       (minObjSize, minObjSize)
 
 -- ------------------------ Sample game ------------------------ --
 
@@ -215,43 +216,41 @@ mapCoordToPos (x, y)
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
-checkCollision game@(Game levels player _ state)
-  | pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x =
-    case takeTileFromLvl level (x, y) of
-      Nothing -> case takeTileFromLvl level (x_r, y) of
+checkCollision game@(Game levels player _ state) =
+    case takeTileFromLvl level (x_close, y) of
+      Nothing -> case takeTileFromLvl level (x_far, y) of
         Nothing -> game
-        Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
-      Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
-  | otherwise =
-    case takeTileFromLvl level (x_r, y) of
-      Nothing -> case takeTileFromLvl level (x, y) of
-        Nothing -> game
-        Just tile -> performCollisions (map (\c -> (c, (x, y))) (typeOfCollision tile)) game
-      Just tile -> performCollisions (map (\c -> (c, (x_r, y))) (typeOfCollision tile)) game
+        Just tile -> performCollisions (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
+      Just tile -> performCollisions (map (\c -> (c, (x_close, y))) (typeOfCollision tile)) game
   where
+    level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
+    (MovingObject kind (pos_x, pos_y) _ _ ) = player
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
-    (pos_x, pos_y) = pos
-    (MovingObject kind pos _ _ ) = player
-    level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
+    (x_close, x_far) =
+      if pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x
+        then (x, x_r)
+        else (x_r, x)
 
 -- | Perform the collisions.
 -- Right now the implementation is fixed to the position of the player.
 performCollisions :: [(CollisionType, Coord)] -> Game -> Game
 performCollisions [] game = game
-performCollisions (c:cs) (Game levels player objects state) =
-  case c of
-    (Delete, tile_pos) -> performCollisions cs
-      (Game (updateLvls levels levelNum tile_pos Empty)
-      (MovingObject objKind pos (vel_x, -vel_y) (accel_x, g)) objects state)
-    (Spawn kind (off_x, off_y), (tile_x, tile_y)) -> performCollisions cs
-      (Game levels player
-      ((MovingObject kind (mapCoordToPos (tile_x + off_x, tile_y + off_y))
-      (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
-    (Change tile, tile_pos) -> performCollisions cs
-      (Game (updateLvls levels levelNum tile_pos tile) player objects state)
+performCollisions (c:cs) (Game lvls player objects state) =
+  performCollisions cs $ case c of
+    (Delete, tile_pos) ->
+      (Game (updateLvls lvls levelNum tile_pos Empty) player objects state)
+    (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
+      (Game lvls player
+        ((MovingObject objKind (mapCoordToPos (tile_x + off_x, tile_y + off_y))
+          (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
+    (Change tile, tile_pos) ->
+      (Game (updateLvls lvls levelNum tile_pos tile) player objects state)
+    (Bounce, _) -> 
+      Game lvls (MovingObject kind (pos_x, pos_y - thresh) 
+        (vel_x, 0) (accel_x, g)) objects state
   where
-    (MovingObject objKind pos (vel_x, vel_y) (accel_x, _)) = player
+    (MovingObject kind (pos_x, pos_y) (vel_x, _) (accel_x, _)) = player
     levelNum = gameStateLvlNum state
 
 -- | Apply gravity to the `MovingObject`.
@@ -322,13 +321,12 @@ updateGame dt (Game lvls player objects state) =
     upd_player = 
       (tryMove dt lvl 
       . applyFriction lvl . applyGravity
-      . performActions (S.toList (pressedKeys state)) lvl) player
+      . performActions lvl (S.toList (pressedKeys state))) player
     upd_objects = map (tryMove dt lvl . applyGravity) objects
 
 -- | Apply all provided actions on the player.
-performActions :: [Movement] -> Level -> MovingObject -> MovingObject
-performActions [] _ = id
-performActions ms lvl = foldr (.) id (map (performAction lvl) ms)
+performActions :: Level -> [Movement] -> MovingObject -> MovingObject
+performActions lvl ms= foldr (.) id (map (performAction lvl) ms)
 
 -- | Apply single action on the player.
 performAction :: Level -> Movement -> MovingObject -> MovingObject
@@ -356,12 +354,11 @@ tryMove dt level
       = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
     where
       canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
-    new_obj@(MovingObject _ (new_x, new_y) (vel_x, vel_y) (accel_x, accel_y))
-      = move dt object
-
-    isPlayer BigPlayer = True
-    isPlayer SmallPlayer = True
-    isPlayer _ = False
+      new_obj@(MovingObject _ (new_x, new_y) _ _) = move dt object
+  
+      isPlayer BigPlayer = True
+      isPlayer SmallPlayer = True
+      isPlayer _ = False
 
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` only if all body parts satisfy given expression.
@@ -462,7 +459,7 @@ drawGame assets (Game levels player objects state) =
         ((text (show off_x)) 
         <> translate 0 (-txtOff) (text (show off_y)))
         )
-      <> translate 0  (-tileSize*2.2) 
+      <> translate 0  (-tileSize*3) 
         (scale textScale textScale (inputEvents))
       )
 
@@ -486,7 +483,7 @@ drawTile assets Brick = (envSprites assets) !! 0
 drawTile assets Ground = (envSprites assets) !! 1
 drawTile assets BonusBlockActive = (envSprites assets) !! 2
 drawTile assets BonusBlockEmpty = (envSprites assets) !! 3
-drawTile _ Empty = color blue (rectangleSolid tileSize tileSize)
+drawTile _ Empty = color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
 
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
