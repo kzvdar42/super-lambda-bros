@@ -24,7 +24,6 @@ dependencies:
 - vector >= 0.12.0.1
 - containers >= 0.6.0.1
 
-
 library:
   source-dirs: src
 

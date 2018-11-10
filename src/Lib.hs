@@ -78,12 +78,12 @@ minObjSize::Float
 minObjSize = 0.8 * tileSize
 
 -- | Size of the text.
-textScale::Float
-textScale = 0.008 * gameScale * tileSize
+textScaleFactor::Float
+textScaleFactor = 0.008 * tileSize
 
--- | Game scale.
-gameScale::Float
-gameScale = 2
+-- | Game scale. 
+gameScaleFactor::Float
+gameScaleFactor = 1/2
 
 -- ------------------------ Game constants ------------------------ --
 
@@ -431,9 +431,11 @@ handleGame _ game  = game
 -- ------------------------ Drawing the game ------------------------ --
 
 -- | Draw the game.
-drawGame :: Assets -> Game -> Picture
-drawGame assets game@(Game levels player objects state) =
+drawGame :: Assets -> (Int, Int) -> Game -> Picture
+drawGame assets res game@(Game levels player objects state) =
   let
+    gameScale = gameScaleFactor * (snd fres) / mapHeight
+    textScale = textScaleFactor * gameScale
     lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
     (MovingObject _ pos@(pos_x, pos_y) _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
@@ -445,25 +447,31 @@ drawGame assets game@(Game levels player objects state) =
       (zip (map (\y -> translate 0.0 (-y * charSize)) [0..]) 
         (map (showScaledText) (S.elems (pressedKeys state)))
       )
+    preComposed = drawLvl assets lvl
+        <> pictures (map (drawObject assets) objects)
+        <> drawObject assets player
+    composed = scale gameScale gameScale preComposed
+        -- | Debug output.
+    debug = translate 0 (-2 * gameScale * tileSize)
+      (  translate 0 0
+          (showScaledText сoord_x
+          <> translate 0 (-charSize) (showScaledText coord_y)
+          )
+      <> translate (2 * charSize) 0
+          (showScaledText pos_x
+          <> translate 0 (-charSize) (showScaledText pos_y)
+          )
+      <> translate (2 * charSize + txtOff) 0
+          (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
+      <> translate 0  (-2 * charSize) inputEvents
+      )
+    fres = getFloating res
+    mapHeight = getMapHeight game
+    adjustedMapHeight = gameScale * (mapHeight + tileSize / 2)
+    composedRelative = alignWorldToX ((*) gameScale $ fst $ getPlayerCoords game) (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
   in
-    let composed = (scale gameScale gameScale (drawLvl assets lvl))
-          <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
-          <> scale gameScale gameScale (drawObject assets player)
-          -- | Debug output.
-          <> translate 0 (-2 * gameScale * tileSize)
-            (  translate 0 0
-                (showScaledText сoord_x
-                <> translate 0 (-charSize) (showScaledText coord_y)
-                )
-            <> translate (2 * charSize) 0
-                (showScaledText pos_x
-                <> translate 0 (-charSize) (showScaledText pos_y)
-                )
-            <> translate (2 * charSize + txtOff) 0
-                (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
-            <> translate 0  (-2 * charSize) inputEvents
-            )
-      in  alignWorldToX (fst $ getPlayerCoords game) 100 200 $ centerPictureY (getMapHeight game) composed -- TODO link offsets to maps
+    composedRelative <> centerPictureY mapHeight gameScale debug
+     -- TODO link offsets to maps
 
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
@@ -504,24 +512,33 @@ drawKind assets Shell = (enemySprites assets) !! 0
 
 -- | Based on tile count of stored map calculate map size 
 getMapHeight :: Game -> Float
-getMapHeight (Game lvls _ _ state) = len * tileSize * gameScale
-      where len = fromIntegral (length (lvls!!(gameStateLvlNum state))) - 1 -- TODO make safe
-
--- | Given picture height center it
-centerPictureY :: Float -> Picture -> Picture
-centerPictureY height pic = translate 0 (-height/2) pic
+getMapHeight (Game lvls _ _ state) = len * tileSize
+      where len = fromIntegral (length (lvls!!(gameStateLvlNum state))) -- TODO make safe
 
 -- | Extract player coordinates from game
 getPlayerCoords :: Game -> (Float, Float)
 getPlayerCoords (Game _ (MovingObject _ pos _ _) _ _) = pos
 
+-- | Given picture height center it
+centerPictureY :: Float -> Float -> Picture -> Picture
+centerPictureY height gameScale pic = translate 0 (gameScale * (-height + tileSize ) / 2 ) pic
+
+-- | Convert a pair of integers into a pair of floats
+getFloating :: (Int, Int) -> (Float, Float)
+getFloating (a, b) = (fromIntegral a, fromIntegral b)
+
 -- | Move the world accoring to player movement
-alignWorldToX :: Float -> Float -> Float -> Picture -> Picture
-alignWorldToX x offsetL offsetR
+alignWorldToX :: Float -> (Float, Float) -> Picture -> Picture
+alignWorldToX x (offsetL, offsetR)
     | x < offsetL = translate (-offsetL) 0 
     | x > offsetR = translate (-offsetR) 0
     | otherwise = translate (-x) 0
  
+getScreenOffset :: (Float, Float) -> Game -> Float -> (Float, Float)
+getScreenOffset (width, _) (Game levels _ _ _) gameScale = (offset, offset - size - tileSize*gameScale)
+    where offset = (width - tileSize*gameScale) / 2
+          size = gameScale * tileSize * (fromIntegral $ maximum (map length levels))
+
 -- | Debug feature for input visualisation
 testInput::GameState->Picture
 testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))

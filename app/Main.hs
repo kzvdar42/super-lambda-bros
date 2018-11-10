@@ -17,7 +17,7 @@ import State
 import World
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
-
+import Graphics.Gloss.Interface.Environment (getScreenSize)
 import Lib
 
 main :: IO ()
@@ -33,11 +33,11 @@ drawTest :: Picture -> Game -> Picture
 drawTest pict _ = pict
 
 main = do
-    let marioObj = map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..2]))
-    marioSprites <- sequence marioObj  
-    let envObj = map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..4]))
-    envSprites <- sequence envObj
-    let enemyObj = map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..1]))
-    enemySprites <- sequence enemyObj
+    screenResolution <- getScreenSize
+    print $ "Screen Resolution: " ++ (show screenResolution)
+    marioSprites <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..2]))
+    envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..4]))
+    enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..1]))
+    
     let assets = Assets marioSprites envSprites enemySprites
-    play (InWindow "Test" (800,600) (0,0)) white 60 initGame (drawGame assets) handleGame updateGame
+    play FullScreen white 60 initGame (drawGame assets screenResolution) handleGame updateGame
