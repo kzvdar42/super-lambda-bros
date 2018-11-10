@@ -425,7 +425,7 @@ handleGame _ game  = game
 
 -- | Draw the game.
 drawGame :: Assets -> Game -> Picture
-drawGame assets (Game levels player objects state) =
+drawGame assets game@(Game levels player objects state) =
   let
     level = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
     (MovingObject _ pos@(pos_x, pos_y) _ _) = player
@@ -433,17 +433,18 @@ drawGame assets (Game levels player objects state) =
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
     txtScale = tileSize*gameScale
   in
-    (scale gameScale gameScale (drawLvl assets level))
-    <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
-    <> scale gameScale gameScale (drawObject assets player)
-    <> translate (-tileSize) (-tileSize) (testInput state)
-    <> translate 0 (-txtScale*2) (scale textScale textScale
-    ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
-    <> translate (txtScale*2) (-txtScale*2) (scale textScale textScale
-    ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
-    <> translate (txtScale*6) (-txtScale*2) (scale textScale textScale
-    ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
-
+    let composed = (scale gameScale gameScale (drawLvl assets level))
+            <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
+            <> scale gameScale gameScale (drawObject assets player)
+            <> translate (-tileSize) (-tileSize) (testInput state)
+            <> translate 0 (-txtScale*2) (scale textScale textScale
+            ((text (show сoord_x)) <> translate 0 (-txtScale*7) (text (show coord_y))))
+            <> translate (txtScale*2) (-txtScale*2) (scale textScale textScale
+            ((text (show pos_x)) <> translate 0 (-txtScale*7) (text (show pos_y))))
+            <> translate (txtScale*6) (-txtScale*2) (scale textScale textScale
+            ((text (show off_x)) <> translate 0 (-txtScale*7) (text (show off_y))))
+    in
+      centerPictureY (getMapHeight game) composed
 -- | Draw the level.
 drawLvl :: Assets -> Level -> Picture
 drawLvl assets [] = blank
@@ -482,11 +483,26 @@ drawKind assets Mushroom = (enemySprites assets) !! 0
 drawKind assets Star = (enemySprites assets) !! 0
 drawKind assets Shell = (enemySprites assets) !! 0
 
--- centered::Picture->Picture
--- centered (Bitmap BitmapData)
--- centered other = other
+-- | Based on tile count of stored map calculate map size 
+getMapHeight :: Game -> Float
+getMapHeight (Game lvls _ _ state) = len * tileSize * gameScale
+      where len = fromIntegral (length (lvls!!(gameStateLvlNum state))) - 1 -- TODO make safe
 
--- animated::Float->
+-- | Given picture height center it
+centerPictureY :: Float -> Picture -> Picture
+centerPictureY height pic = translate 0 (-height/2) pic
+
+-- | Extract player coordinates from game
+getPlayerCoords :: Game -> (Float, Float)
+getPlayerCoords (Game _ (MovingObject _ pos _ _) _ _) = pos
+
+-- | Move the world accoring to player movement
+alignWorldToX :: Float -> Float -> Float -> Picture -> Picture
+alignWorldToX x offsetL offsetR
+    | x < offsetL = translate (-offsetL) 0 
+    | x > offsetR = translate (-offsetR) 0
+    | otherwise = translate (-x) 0
  
+
 testInput::GameState->Picture
 testInput gs = pictures (map (text.show) (S.elems (pressedKeys gs)))
