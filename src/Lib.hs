@@ -79,7 +79,7 @@ minObjSize = 0.8 * tileSize
 
 -- | Size of the text.
 textScale::Float
-textScale = 0.008 * tileSize
+textScale = 0.008 * gameScale * tileSize
 
 -- | Game scale.
 gameScale::Float
@@ -436,31 +436,32 @@ drawGame assets (Game levels player objects state) =
     (MovingObject _ pos@(pos_x, pos_y) _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
-    txtOff = tileSize * 10
-    inputEvents = pictures $ map (\(t, p) -> t p) 
-      (zip (map (\y -> translate 0.0 (-y*txtOff)) [0..]) 
-        (map (text.show) (S.elems (pressedKeys state)))
+    charSize = 1.2 * tileSize * gameScale
+    txtOff = 7 * charSize
+    showScaledText str = scale textScale textScale (text (show str))
+    inputEvents = pictures $ map (\(t, p) -> t p)
+      (zip (map (\y -> translate 0.0 (-y * charSize)) [0..]) 
+        (map (showScaledText) (S.elems (pressedKeys state)))
       )
   in
     (scale gameScale gameScale (drawLvl assets lvl))
     <> scale gameScale gameScale (pictures (map (drawObject assets) objects))
     <> scale gameScale gameScale (drawObject assets player)
     -- | Debug output.
-    <> translate 0 (-tileSize*2)
-      (translate 0  0 (scale textScale textScale
-        ((text (show сoord_x)) 
-        <> translate 0 (-txtOff) (text (show coord_y)))
-        )
-      <> translate (tileSize*2) 0 (scale textScale textScale
-        ((text (show pos_x))
-        <> translate 0 (-txtOff) (text (show pos_y)))
-        )
-      <> translate (tileSize*9) 0 (scale textScale textScale
-        ((text (show off_x)) 
-        <> translate 0 (-txtOff) (text (show off_y)))
-        )
-      <> translate 0  (-tileSize*3) 
-        (scale textScale textScale (inputEvents))
+    <> translate 0 (-2 * gameScale * tileSize)
+      (  translate 0 0
+          (showScaledText сoord_x
+          <> translate 0 (-charSize) (showScaledText coord_y)
+          )
+      <> translate (2 * charSize) 0
+          (showScaledText pos_x
+          <> translate 0 (-charSize) (showScaledText pos_y)
+          )
+      <> translate (2 * charSize + txtOff) 0
+          (showScaledText off_x 
+          <> translate 0 (-charSize) (showScaledText off_y)
+          )
+      <> translate 0  (-2 * charSize) inputEvents
       )
 
 -- | Draw the level.
