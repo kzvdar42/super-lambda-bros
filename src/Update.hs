@@ -152,18 +152,33 @@ canMove lvl pos@(pos_x, pos_y) =
     (x_r, y_r) = mapPosToCoord (pos_x + minObjSize, pos_y + minObjSize)
 
 -- | Physics of the game.
-updateGame :: Float -> Game -> Game
-updateGame dt (Game lvls player objects state) =
+updateGame :: (Int, Int) -> Float -> Game -> Game
+updateGame res dt (Game lvls player objects state) =
   case gameStateNextLvlNum state of
     Nothing -> checkCollision (Game lvls upd_player upd_objects state)
     Just nextLevel -> Game lvls upd_player upd_objects
       (state {gameStateLvlNum = nextLevel, gameStateNextLvlNum = Nothing})
   where
     lvl = lvls !! gameStateLvlNum state -- TODO: make this is a safe way.
+    (MovingObject _ plr_pos _ _) = player
     upd_player =
         ( tryMove dt lvl
         . applyFriction lvl
-        . applyGravity dt
+        . applyGravityAsVel dt
         . performActions lvl (S.toList (pressedKeys state))
         ) player
-    upd_objects = map (tryMove dt lvl . applyGravity dt) objects
+    upd_objects = updateObjects res dt lvl plr_pos objects
+
+-- | Update objects due the current position of player.
+-- If the object is far from the screen, doesn't update it.
+updateObjects :: (Int, Int) -> Float -> Level -> Position -> [MovingObject] -> [MovingObject]
+updateObjects _ _ _ _ [] = []
+updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
+  | pos_x >= leftBoundary && pos_x <= rightBoundary
+    = (tryMove dt lvl . applyGravityAsVel dt) obj
+    : updateObjects res dt lvl plr_pos objs
+  | otherwise = obj : updateObjects res dt lvl plr_pos objs
+  where
+    (MovingObject _ (pos_x, _) _ _) = obj
+    leftBoundary = plr_pos_x - (fromIntegral res_x)
+    rightBoundary = plr_pos_x + (fromIntegral res_x)/2

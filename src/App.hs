@@ -45,4 +45,4 @@ run = do
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
   let assets = Assets marioSprites envSprites enemySprites
-  play FullScreen white 60 (initGame maps) (drawGame assets screenResolution) handleGame updateGame
+  play FullScreen white 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)
