@@ -15,7 +15,8 @@ data Tile = Ground | Brick | BonusBlockActive | BonusBlockEmpty | Empty
 type Level = [[Tile]]
 
 -- | Types of possible player input
-data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON deriving (Eq, Ord, Show)
+data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
+  deriving (Eq, Ord, Show)
 
 -- | State of the game (HP levelNumber nextLevel).
 data GameState = GameState
@@ -28,7 +29,6 @@ data GameState = GameState
 --   Game        Levels  Player       Level Objects  State
 data Game = Game [Level] MovingObject [MovingObject] GameState
 
--- Objects
 type Vector2 = (Float, Float)
 type Coord = (Integer, Integer)
 type Position = Vector2
@@ -115,15 +115,15 @@ typeOfCollision BonusBlockActive
 typeOfCollision Empty = []
 typeOfCollision _ = [Bounce]
 
--- | Get size of `MovingObject of given kind.
+-- | Get size of `MovingObject` of given kind.
 getSize :: Kind -> Size
-getSize BigPlayer =   (minObjSize, minObjSize * 2)
+getSize BigPlayer   = (minObjSize, minObjSize * 2)
 getSize SmallPlayer = (minObjSize, minObjSize)
-getSize Gumba =       (minObjSize, minObjSize)
-getSize Turtle =      (minObjSize, minObjSize * 2)
-getSize Mushroom =    (minObjSize, minObjSize)
-getSize Star =        (minObjSize, minObjSize)
-getSize Shell =       (minObjSize, minObjSize)
+getSize Gumba       = (minObjSize, minObjSize)
+getSize Turtle      = (minObjSize, minObjSize * 2)
+getSize Mushroom    = (minObjSize, minObjSize)
+getSize Star        = (minObjSize, minObjSize)
+getSize Shell       = (minObjSize, minObjSize)
 
 -- ------------------------ Game initialization ------------------------ --
 
@@ -147,23 +147,30 @@ initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0
 -- | Initial amount of enemies.
 initObjects :: [MovingObject]
 initObjects =
-  [ MovingObject Gumba (21 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (41 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (54 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (56 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (81 * tileSize, 10 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (83 * tileSize, 10 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (98 * tileSize, 4 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (100 * tileSize, 4 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (116 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (118 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (125 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (127 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (130 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (175 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Gumba (177 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Turtle (107 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  [ initEnemy Gumba  21  2
+  , initEnemy Gumba  41  2
+  , initEnemy Gumba  54  2
+  , initEnemy Gumba  56  2
+  , initEnemy Gumba  81  10
+  , initEnemy Gumba  83  10
+  , initEnemy Gumba  98  4
+  , initEnemy Gumba  100 4
+  , initEnemy Gumba  116 2
+  , initEnemy Gumba  118 2
+  , initEnemy Gumba  125 2
+  , initEnemy Gumba  127 2
+  , initEnemy Gumba  130 2
+  , initEnemy Gumba  175 2
+  , initEnemy Gumba  177 2
+  , initEnemy Turtle 107 2
   ]
+  where
+    initEnemy kind x_offset y_offset
+      = MovingObject
+        kind
+        (x_offset * tileSize, y_offset * tileSize)
+        (-1.0 * tileSize, 0.0) -- Goes left initially
+        (0.0, 0.0) -- No acceleration
 
 -- ------------------------ Work with map ------------------------ --
 

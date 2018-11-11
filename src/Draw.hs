@@ -100,14 +100,16 @@ drawObject :: Assets -> MovingObject -> Picture
 drawObject assets (MovingObject kind (pos_x, pos_y) _ _)
   = translate
     (pos_x + (size_x - minObjSize) / 2)
-    (pos_y + (size_y - minObjSize) / 2) (drawKind assets kind)
+    (pos_y + (size_y - minObjSize) / 2)
+    (drawKind assets kind)
   where
     (size_x, size_y) = getSize kind
 
 -- | Based on tile count of stored map calculate map size
 getMapHeight :: Game -> Float
 getMapHeight (Game lvls _ _ state) = len * tileSize
-  where len = fromIntegral (length (lvls !! gameStateLvlNum state)) -- TODO make safe
+  where
+    len = fromIntegral (length (lvls !! gameStateLvlNum state)) -- TODO make safe
 
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
