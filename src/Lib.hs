@@ -90,12 +90,12 @@ g = 1.5 * tileSize
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (0.3 * tileSize, 7 * g)
+step = (0.3 * tileSize, 8 * g)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.01 * tileSize
+thresh = 0.05 * tileSize
 
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
@@ -142,14 +142,27 @@ initState =  GameState
 
 -- | Initial state of the player.
 initPlayer :: MovingObject
-initPlayer = MovingObject SmallPlayer (1.0 * tileSize, 1.0 * tileSize) (0.0, 0.0) (0.0, 0.0)
+initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0)
 
 -- | Initial amount of enemies.
 initObjects :: [MovingObject]
 initObjects =
-  [ MovingObject Gumba (3.0 * tileSize, 1.0 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Turtle (4.0 * tileSize, 1.0 * tileSize) (1.0 * tileSize, 0.0) (0.0, 0.0)
-  , MovingObject Mushroom (7.0 * tileSize, 4.0 * tileSize) (2.0 * tileSize, 0.0) (0.0, 0.0)
+  [ MovingObject Gumba (21 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (41 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (54 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (56 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (81 * tileSize, 10 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (83 * tileSize, 10 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (98 * tileSize, 4 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (100 * tileSize, 4 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (116 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (118 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (125 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (127 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (130 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (175 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Gumba (177 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
+  , MovingObject Turtle (107 * tileSize, 2 * tileSize) (-1.0 * tileSize, 0.0) (0.0, 0.0)
   ]
 
 -- ------------------------ Work with map ------------------------ --

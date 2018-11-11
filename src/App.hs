@@ -26,7 +26,7 @@ readMap parse filename = do
 -- | Convert character from source file to the corresponding tile.
 getTile :: Char -> Tile
 getTile num
-  | num == '0' = Empty
+  | num == ' ' = Empty
   | num == '1' = Ground
   | num == '2' = Brick
   | num == '3' = BonusBlockActive
