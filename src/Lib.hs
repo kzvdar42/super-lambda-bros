@@ -72,7 +72,7 @@ tileSize = 16
 -- | Size of the minimum MovingObject.
 -- Size of the others should be a scalar multiplication of this.
 minObjSize :: Float
-minObjSize = 0.9 * tileSize
+minObjSize = 0.8 * tileSize
 
 -- | Size of the text.
 textScaleFactor :: Float
@@ -86,11 +86,11 @@ gameScaleFactor = 1
 
 -- | Gravity of the world.
 g :: Float
-g = 1.5 * tileSize
+g = 9 * tileSize
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (0.3 * tileSize, 8 * g)
+step = (0.3 * tileSize, g)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.

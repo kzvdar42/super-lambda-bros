@@ -46,10 +46,15 @@ performCollisions (c:cs) (Game lvls player objects state) =
     (MovingObject kind pos (vel_x, _) (accel_x, _)) = player
     levelNum = gameStateLvlNum state
 
+-- -- | Apply gravity to the `MovingObject`.
+-- applyGravity :: Float -> MovingObject -> MovingObject
+-- applyGravity dt (MovingObject kind pos vel (accel_x, accel_y))
+--   = MovingObject kind pos vel (accel_x, accel_y - g * dt)
+
 -- | Apply gravity to the `MovingObject`.
-applyGravity :: Float -> MovingObject -> MovingObject
-applyGravity dt (MovingObject kind pos vel (accel_x, accel_y))
-  = MovingObject kind pos vel (accel_x, accel_y - g * dt)
+applyGravityAsVel :: Float -> MovingObject -> MovingObject
+applyGravityAsVel dt (MovingObject kind pos (vel_x, vel_y) accel)
+  = MovingObject kind pos (vel_x, vel_y - g * dt) accel
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
@@ -81,7 +86,7 @@ tryJump :: Level -> MovingObject -> Position -> MovingObject
 tryJump lvl
   player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, vel_y) accel) (off_x, off_y)
     | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
-      = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
+      = MovingObject kind pos (vel_x + off_x, off_y) accel
     | otherwise = player
     where
       inAir = canMove lvl (pos_x + thresh, pos_y - thresh)
