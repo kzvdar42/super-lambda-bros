@@ -71,11 +71,29 @@ drawLine assets tiles
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
-drawTile assets Brick = (envSprites assets) !! 0
-drawTile assets Ground = (envSprites assets) !! 1
-drawTile assets BonusBlockActive = (envSprites assets) !! 2
-drawTile assets BonusBlockEmpty = (envSprites assets) !! 3
+drawTile assets Brick = getAssetFromList (envSprites assets) 0
+drawTile assets Ground = getAssetFromList (envSprites assets) 1
+drawTile assets BonusBlockActive = getAssetFromList (envSprites assets) 2
+drawTile assets BonusBlockEmpty = getAssetFromList (envSprites assets) 3
 drawTile _ Empty = color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
+
+-- | Draw the object kind.
+drawKind :: Assets -> Kind -> Picture
+drawKind assets BigPlayer = getAssetFromList (marioSprites assets) 1
+drawKind assets SmallPlayer = getAssetFromList (marioSprites assets) 0
+drawKind assets Gumba = getAssetFromList (enemySprites assets) 0
+drawKind assets Turtle = getAssetFromList (enemySprites assets) 1
+drawKind assets Mushroom = getAssetFromList (enemySprites assets) 2
+drawKind assets Shell = getAssetFromList (enemySprites assets) 3
+drawKind assets Star = getAssetFromList (enemySprites assets) 4
+
+-- | Safely get the asset from the provided list.
+-- If the asset is not found, return a placaholder picture.
+getAssetFromList :: [Picture] -> Integer -> Picture
+getAssetFromList assets num =
+  case takeElemFromList assets num of
+    Just p -> p
+    Nothing -> scale tileSize tileSize (color black (rectangleSolid 1 1))
 
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
@@ -85,16 +103,6 @@ drawObject assets (MovingObject kind (pos_x, pos_y) _ _)
     (pos_y + (size_y - minObjSize) / 2) (drawKind assets kind)
   where
     (size_x, size_y) = getSize kind
-
--- | Draw the object kind.
-drawKind :: Assets -> Kind -> Picture
-drawKind assets BigPlayer = (marioSprites assets) !! 0
-drawKind assets SmallPlayer = (marioSprites assets) !! 0
-drawKind assets Gumba = (enemySprites assets) !! 0
-drawKind assets Turtle = (enemySprites assets) !! 1
-drawKind assets Mushroom = (enemySprites assets) !! 2
-drawKind assets Shell = (enemySprites assets) !! 3
-drawKind assets Star = (enemySprites assets) !! 4
 
 -- | Based on tile count of stored map calculate map size
 getMapHeight :: Game -> Float
