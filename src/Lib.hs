@@ -75,7 +75,7 @@ tileSize = 16
 -- | Size of the minimum MovingObject.
 -- Size of the others should be a scalar multiplication of this.
 minObjSize::Float
-minObjSize = 0.8 * tileSize
+minObjSize = 0.9 * tileSize
 
 -- | Size of the text.
 textScaleFactor::Float
@@ -83,7 +83,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale. 
 gameScaleFactor::Float
-gameScaleFactor = 1/2
+gameScaleFactor = 1
 
 -- ------------------------ Game constants ------------------------ --
 
@@ -133,21 +133,6 @@ getSize Shell =       (minObjSize, minObjSize)
 -- | Function for ease of making big amounts of tiles.
 makeTiles :: Tile -> [Tile]
 makeTiles tile = [tile] ++ makeTiles tile
-
--- | Sample level for the game.
-sampleLevel :: Level
-sampleLevel =
-  [ Ground : take 15 (makeTiles Ground) ++ [Ground] -- Bottom 0
-  , Brick  : take 7 (makeTiles Empty) ++ [Brick]
-    ++ take 7 (makeTiles Empty) ++ [Brick]
-  , Brick  : take 15 (makeTiles Empty) ++ [Brick]
-  , Brick  : take 3  (makeTiles Empty) ++ take 2  (makeTiles Brick)
-    ++ [BonusBlockActive] ++ take 9  (makeTiles Brick) ++ [Brick]
-  , Brick  : take 15 (makeTiles Empty) ++ [Brick]
-  , Brick  : take 3 (makeTiles Empty) ++ [Brick]
-    ++ take 11 (makeTiles Empty) ++ [Brick]
-  , Brick  : take 15 (makeTiles Brick) ++ [Brick] -- Sky 6
-  ]
 
 -- | Init state of the game.
 initState :: GameState
@@ -465,10 +450,10 @@ drawGame assets res game@(Game levels player objects state) =
           (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
       <> translate 0  (-coordOffset) inputEvents
       )
-    preComposed = drawLvl assets lvl
+    composed = scale gameScale gameScale $
+      drawLvl assets lvl
       <> pictures (map (drawObject assets) objects)
       <> drawObject assets player
-    composed = scale gameScale gameScale preComposed
     fres = getFloating res
     mapHeight = getMapHeight game
     composedRelative = alignWorldToX ((*) gameScale $ fst pos) (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
@@ -482,7 +467,7 @@ drawLvl :: Assets -> Level -> Picture
 drawLvl _ [] = blank
 drawLvl assets rows
   = pictures $ map (\(t, p) -> t p)
-  (zip (map (\y -> translate 0 (y * tileSize)) [0..]) 
+  (zip (map (\y -> translate 0 (y * tileSize)) [0..])
     (map (drawLine assets) (rows)))
 
 -- | Draw the line of the level.
@@ -490,7 +475,7 @@ drawLine :: Assets -> [Tile] -> Picture
 drawLine _ [] = blank
 drawLine assets tiles
   = pictures $ map (\(t, p) -> t p)
-  (zip (map (\y -> translate (y * tileSize) 0) [0..]) 
+  (zip (map (\y -> translate (y * tileSize) 0) [0..])
     (map (drawTile assets) (tiles)))
 
 -- | Draw one tile.
@@ -503,18 +488,22 @@ drawTile _ Empty = color (makeColorI 92 148 252 255) (rectangleSolid tileSize ti
 
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
-drawObject assets (MovingObject objType (pos_x, pos_y) _ _)
-  = translate pos_x pos_y (drawKind assets objType)
+drawObject assets (MovingObject kind (pos_x, pos_y) _ _)
+  = translate
+    (pos_x + (size_x - minObjSize) / 2)
+    (pos_y + (size_y - minObjSize) / 2) (drawKind assets kind)
+  where
+    (size_x, size_y) = getSize kind
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Picture
 drawKind assets BigPlayer = (marioSprites assets) !! 0
 drawKind assets SmallPlayer = (marioSprites assets) !! 0
 drawKind assets Gumba = (enemySprites assets) !! 0
-drawKind assets Turtle = (enemySprites assets) !! 0
-drawKind assets Mushroom = (enemySprites assets) !! 0
-drawKind assets Star = (enemySprites assets) !! 0
-drawKind assets Shell = (enemySprites assets) !! 0
+drawKind assets Turtle = (enemySprites assets) !! 1
+drawKind assets Mushroom = (enemySprites assets) !! 2
+drawKind assets Shell = (enemySprites assets) !! 3
+drawKind assets Star = (enemySprites assets) !! 4
 
 -- | Based on tile count of stored map calculate map size 
 getMapHeight :: Game -> Float
