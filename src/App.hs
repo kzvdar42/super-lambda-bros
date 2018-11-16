@@ -31,6 +31,11 @@ getTile num
   | num == '2' = Brick
   | num == '3' = BonusBlockActive
   | num == '4' = BonusBlockEmpty
+  | num == '5' = PipeGreenTopLeft
+  | num == '6' = PipeGreenTopRight
+  | num == '7' = PipeGreenLeft
+  | num == '8' = PipeGreenRight
+  | num == '9' = RomboBlock
   | otherwise = Empty
 
 -- | Program entry point.
@@ -39,10 +44,10 @@ run = do
   screenResolution <- getScreenSize
   print $ "Screen Resolution: " ++ (show screenResolution)
   marioSprites <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..2]))
-  envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..4]))
+  envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9]))
   enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..5]))
 
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
   let assets = Assets marioSprites envSprites enemySprites
-  play FullScreen white 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)
+  play FullScreen (makeColor (92/255) (148/255) (252/255) (255/255)) 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)

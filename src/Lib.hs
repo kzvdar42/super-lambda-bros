@@ -9,7 +9,16 @@ import Graphics.Gloss
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
-data Tile = Ground | Brick | BonusBlockActive | BonusBlockEmpty | Empty
+data Tile = Ground 
+          | Brick 
+          | BonusBlockActive 
+          | BonusBlockEmpty 
+          | Empty 
+          | PipeGreenTopLeft 
+          | PipeGreenTopRight 
+          | PipeGreenLeft 
+          | PipeGreenRight 
+          | RomboBlock
 
 -- | Level of the game.
 type Level = [[Tile]]
@@ -86,11 +95,11 @@ gameScaleFactor = 1
 
 -- | Gravity of the world.
 g :: Float
-g = 9 * tileSize
+g = 25 * tileSize
 
 -- | Step of Player (speed).
 step :: Vector2
-step = (0.3 * tileSize, g)
+step = (0.3 * tileSize, 0.6 * g)
 
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.

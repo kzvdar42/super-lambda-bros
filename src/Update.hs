@@ -83,7 +83,7 @@ canJump lvl (pos_x, pos_y) =
 
 -- | Jump to the stars!
 tryJump :: Level -> MovingObject -> Position -> MovingObject
-tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, vel_y) accel) (off_x, off_y)
+tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel) (off_x, off_y)
   | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
     = MovingObject kind pos (vel_x + off_x, off_y) accel
   | otherwise = player

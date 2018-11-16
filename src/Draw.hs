@@ -75,7 +75,12 @@ drawTile assets Brick = getAssetFromList (envSprites assets) 0
 drawTile assets Ground = getAssetFromList (envSprites assets) 1
 drawTile assets BonusBlockActive = getAssetFromList (envSprites assets) 2
 drawTile assets BonusBlockEmpty = getAssetFromList (envSprites assets) 3
-drawTile _ Empty = color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
+drawTile assets PipeGreenTopLeft = getAssetFromList (envSprites assets) 4
+drawTile assets PipeGreenTopRight = getAssetFromList (envSprites assets) 5
+drawTile assets PipeGreenLeft = getAssetFromList (envSprites assets) 6
+drawTile assets PipeGreenRight = getAssetFromList (envSprites assets) 7
+drawTile assets RomboBlock = getAssetFromList (envSprites assets) 8
+drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Picture
