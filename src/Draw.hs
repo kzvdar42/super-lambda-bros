@@ -14,7 +14,7 @@ getFloating (a, b) = (fromIntegral a, fromIntegral b)
 
 -- | Draw the game.
 drawGame :: Assets -> (Int, Int) -> Game -> Picture
-drawGame assets res game@(Game levels player objects state) =
+drawGame assets res game@(Game levels player state) =
   let
     gameScale = gameScaleFactor * (snd fres) / mapHeight
     textScale = textScaleFactor * gameScale
@@ -41,8 +41,8 @@ drawGame assets res game@(Game levels player objects state) =
         <> translate 0  (-coordOffset) inputEvents
       )
     composed = scale gameScale gameScale (
-      drawLvl assets lvl
-      <> pictures (map (drawObject assets) objects)
+      drawLvl assets (levelMap lvl)
+      <> pictures (map (drawObject assets) (levelObjs lvl))
       <> drawObject assets player)
     fres = getFloating res
     mapHeight = getMapHeight game
@@ -54,12 +54,12 @@ drawGame assets res game@(Game levels player objects state) =
       (centerPictureY mapHeight gameScale debug)
 
 -- | Draw the level.
-drawLvl :: Assets -> Level -> Picture
+drawLvl :: Assets -> LevelMap -> Picture
 drawLvl _ [] = blank
-drawLvl assets rows
+drawLvl assets lvlMap
   = pictures $ map (\(t, p) -> t p)
   (zip (map (\y -> translate 0 (y * tileSize)) [0..])
-    (map (drawLine assets) (rows)))
+    (map (drawLine assets) lvlMap))
 
 -- | Draw the line of the level.
 drawLine :: Assets -> [Tile] -> Picture
@@ -112,9 +112,9 @@ drawObject assets (MovingObject kind (pos_x, pos_y) _ _)
 
 -- | Based on tile count of stored map calculate map size
 getMapHeight :: Game -> Float
-getMapHeight (Game lvls _ _ state) = len * tileSize
+getMapHeight (Game lvls _ state) = len * tileSize
   where
-    len = fromIntegral (length (lvls !! gameStateLvlNum state)) -- TODO make safe
+    len = fromIntegral (length (levelMap (lvls !! gameStateLvlNum state))) -- TODO: do this safe
 
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
@@ -129,9 +129,9 @@ alignWorldToX x (offsetL, offsetR)
 
 -- | Calculate offsets to limit map drawing on sides
 getScreenOffset :: (Float, Float) -> Game -> Float -> Position
-getScreenOffset (width, _) (Game levels _ _ state) gameScale
+getScreenOffset (width, _) (Game levels _ state) gameScale
   = (offset, size - offset - tileSize * gameScale)
   where
     offset = (width - tileSize * gameScale) / 2
-    size = gameScale * tileSize * (fromIntegral $ length (lvl !! 0))
-    lvl = levels !! gameStateLvlNum state
+    size = gameScale * tileSize * (fromIntegral $ length (lvlMap !! 0))
+    lvlMap = levelMap (levels !! gameStateLvlNum state)

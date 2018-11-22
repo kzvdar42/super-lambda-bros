@@ -9,23 +9,28 @@ import Graphics.Gloss
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
-data Tile = Ground 
-          | Brick 
-          | BonusBlockActive 
-          | BonusBlockEmpty 
-          | Empty 
-          | PipeGreenTopLeft 
-          | PipeGreenTopRight 
-          | PipeGreenLeft 
-          | PipeGreenRight 
+data Tile = Ground
+          | Brick
+          | BonusBlockActive
+          | BonusBlockEmpty
+          | Empty
+          | PipeGreenTopLeft
+          | PipeGreenTopRight
+          | PipeGreenLeft
+          | PipeGreenRight
           | RomboBlock
 
+-- | Map of the level.
+type LevelMap = [[Tile]]
+
 -- | Level of the game.
-type Level = [[Tile]]
+data Level = Level
+  { levelMap :: LevelMap
+  , levelObjs :: [MovingObject]
+  }
 
 -- | Types of possible player input
-data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
-  deriving (Eq, Ord, Show)
+data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON deriving (Eq, Ord, Show)
 
 -- | State of the game (HP levelNumber nextLevel).
 data GameState = GameState
@@ -35,9 +40,10 @@ data GameState = GameState
   , pressedKeys          :: S.Set Movement
   }
 
---   Game        Levels  Player       Level Objects  State
-data Game = Game [Level] MovingObject [MovingObject] GameState
+--   Game        Levels  Player       State
+data Game = Game [Level] MovingObject GameState
 
+-- Objects
 type Vector2 = (Float, Float)
 type Coord = (Integer, Integer)
 type Position = Vector2
@@ -124,21 +130,30 @@ typeOfCollision BonusBlockActive
 typeOfCollision Empty = []
 typeOfCollision _ = [Bounce]
 
--- | Get size of `MovingObject` of given kind.
+-- | Get size of `MovingObject of given kind.
 getSize :: Kind -> Size
-getSize BigPlayer   = (minObjSize, minObjSize * 2)
+getSize BigPlayer =   (minObjSize, minObjSize * 2)
 getSize SmallPlayer = (minObjSize, minObjSize)
-getSize Gumba       = (minObjSize, minObjSize)
-getSize Turtle      = (minObjSize, minObjSize * 2)
-getSize Mushroom    = (minObjSize, minObjSize)
-getSize Star        = (minObjSize, minObjSize)
-getSize Shell       = (minObjSize, minObjSize)
+getSize Gumba =       (minObjSize, minObjSize)
+getSize Turtle =      (minObjSize, minObjSize * 2)
+getSize Mushroom =    (minObjSize, minObjSize)
+getSize Star =        (minObjSize, minObjSize)
+getSize Shell =       (minObjSize, minObjSize)
+
+getInitSpeed :: Kind -> Vector2
+getInitSpeed BigPlayer =   (0, 0)
+getInitSpeed SmallPlayer = (0, 0)
+getInitSpeed Gumba =       (-1 * tileSize, 0)
+getInitSpeed Turtle =      (-1 * tileSize, 0)
+getInitSpeed Mushroom =    (-1 * tileSize, 0)
+getInitSpeed Star =        (-1 * tileSize, 0)
+getInitSpeed Shell =       (-1 * tileSize, 0)
 
 -- ------------------------ Game initialization ------------------------ --
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels = Game levels initPlayer initObjects initState
+initGame levels = Game levels initPlayer initState
 
 -- | Init state of the game.
 initState :: GameState
@@ -152,34 +167,6 @@ initState =  GameState
 -- | Initial state of the player.
 initPlayer :: MovingObject
 initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0)
-
--- | Initial amount of enemies.
-initObjects :: [MovingObject]
-initObjects =
-  [ initEnemy Gumba  21  2
-  , initEnemy Gumba  41  2
-  , initEnemy Gumba  54  2
-  , initEnemy Gumba  56  2
-  , initEnemy Gumba  81  10
-  , initEnemy Gumba  83  10
-  , initEnemy Gumba  98  4
-  , initEnemy Gumba  100 4
-  , initEnemy Gumba  116 2
-  , initEnemy Gumba  118 2
-  , initEnemy Gumba  125 2
-  , initEnemy Gumba  127 2
-  , initEnemy Gumba  130 2
-  , initEnemy Gumba  175 2
-  , initEnemy Gumba  177 2
-  , initEnemy Turtle 107 2
-  ]
-  where
-    initEnemy kind x_offset y_offset
-      = MovingObject
-        kind
-        (x_offset * tileSize, y_offset * tileSize)
-        (-1.0 * tileSize, 0.0) -- Goes left initially
-        (0.0, 0.0) -- No acceleration
 
 -- ------------------------ Work with map ------------------------ --
 
@@ -196,22 +183,26 @@ takeElemFromList (l:_) 0 = Just l
 takeElemFromList (_:ls) n = takeElemFromList ls (n - 1)
 
 -- | Update the level in the list.
-updateLvls :: [Level] -> Int -> Coord -> Tile -> [Level]
-updateLvls [] _ _ _ = []
-updateLvls (l:ls) 0 pos tile = updateLvl l pos tile : ls
-updateLvls (l:ls) n pos tile = l : updateLvls ls (n - 1) pos tile
+updateLvlMap :: [Level] -> Int -> Coord -> Tile -> [Level]
+updateLvlMap [] _ _ _ = []
+updateLvlMap (l:ls) 0 pos tile
+  = l { levelMap = updateElemInmatrix (levelMap l) pos tile } : ls
+updateLvlMap (l:ls) n pos tile = l : updateLvlMap ls (n - 1) pos tile
 
 -- | Update the tile in the level.
-updateLvl :: Level -> Coord -> Tile -> Level
-updateLvl [] _ _ = []
-updateLvl (l:ls) (pos_x, 0) tile = updateRow l pos_x tile : ls
-updateLvl (l:ls) (pos_x, pos_y) tile = l : updateLvl ls (pos_x, pos_y - 1) tile
+updateElemInmatrix :: [[a]] -> Coord -> a -> [[a]]
+updateElemInmatrix [] _ _ = []
+updateElemInmatrix (l:ls) (pos_x, 0) tile
+  = updateElemInList l tile pos_x : ls
+updateElemInmatrix (l:ls) (pos_x, pos_y) tile
+  = l : updateElemInmatrix ls (pos_x, pos_y - 1) tile
 
--- | Update the tile in the row.
-updateRow :: [Tile] -> Integer -> Tile -> [Tile]
-updateRow [] _ _ = []
-updateRow (_:ls) 0 tile = tile : ls
-updateRow (l:ls) n tile = l : updateRow ls (n - 1) tile
+-- | Update element in list.
+updateElemInList :: [a] -> a -> Integer -> [a]
+updateElemInList [] _ _ = []
+updateElemInList (_:xs) newElem 0 = newElem : xs
+updateElemInList (x:xs) newElem n = x
+  : updateElemInList xs newElem (n - 1)
 
 -- | Translate position to the coords for the map.
 mapPosToCoord :: Position -> Coord
@@ -224,22 +215,22 @@ mapCoordToPos (x, y)
 
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` only if all body parts satisfy given expression.
-checkforAllParts :: (Level -> Position -> Bool)
-                 -> Level -> Size -> Position -> Bool
+checkforAllParts :: (LevelMap -> Position -> Bool)
+                 -> LevelMap -> Size -> Position -> Bool
 checkforAllParts = applyToParts (&&) True
 
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` if at least one body part satisfy given expression.
-checkForAnyPart :: (Level -> Position -> Bool)
-                -> Level -> Size -> Position -> Bool
+checkForAnyPart :: (LevelMap -> Position -> Bool)
+                -> LevelMap -> Size -> Position -> Bool
 checkForAnyPart = applyToParts (||) False
 
 -- | Applies the given function to all parts of given body.
 applyToParts
   :: (b -> b -> b)            -- ^ Function to use in `fold` operation
   -> b                        -- ^ Neutral element for `fold` operation
-  -> (Level -> Position -> b) -- ^ Function for taking elem from level map
-  -> Level                    -- ^ Level map
+  -> (LevelMap -> Position -> b) -- ^ Function for taking elem from level map
+  -> LevelMap                    -- ^ Level map
   -> Size                     -- ^ Size of the body
   -> Position                 -- ^ Placement of the body on the map
   -> b
