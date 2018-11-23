@@ -9,16 +9,17 @@ import Graphics.Gloss
 -- ------------------------ Game types ------------------------ --
 
 -- | Tile of level.
-data Tile = Ground
-          | Brick
-          | BonusBlockActive
-          | BonusBlockEmpty
-          | Empty
-          | PipeGreenTopLeft
-          | PipeGreenTopRight
-          | PipeGreenLeft
-          | PipeGreenRight
-          | RomboBlock
+data Tile
+  = Ground
+  | Brick
+  | BonusBlockActive
+  | BonusBlockEmpty
+  | Empty
+  | PipeGreenTopLeft
+  | PipeGreenTopRight
+  | PipeGreenLeft
+  | PipeGreenRight
+  | RomboBlock
 
 -- | Map of the level.
 type LevelMap = [[Tile]]
@@ -30,7 +31,8 @@ data Level = Level
   }
 
 -- | Types of possible player input
-data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON deriving (Eq, Ord, Show)
+data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
+  deriving (Eq, Ord, Show)
 
 -- | State of the game (HP levelNumber nextLevel).
 data GameState = GameState
@@ -52,8 +54,7 @@ type Acceleration = Vector2
 type Size = Vector2
 
 -- | Data type for the objects of the level.
-data MovingObject
-  = MovingObject Kind Position Velocity Acceleration
+data MovingObject = MovingObject Kind Position Velocity Acceleration
 
 -- | Kind of the MovingObject.
 data Kind
@@ -227,12 +228,12 @@ checkForAnyPart = applyToParts (||) False
 
 -- | Applies the given function to all parts of given body.
 applyToParts
-  :: (b -> b -> b)            -- ^ Function to use in `fold` operation
-  -> b                        -- ^ Neutral element for `fold` operation
+  :: (b -> b -> b)               -- ^ Function to use in `fold` operation
+  -> b                           -- ^ Neutral element for `fold` operation
   -> (LevelMap -> Position -> b) -- ^ Function for taking elem from level map
   -> LevelMap                    -- ^ Level map
-  -> Size                     -- ^ Size of the body
-  -> Position                 -- ^ Placement of the body on the map
+  -> Size                        -- ^ Size of the body
+  -> Position                    -- ^ Placement of the body on the map
   -> b
 applyToParts funForFold base posFun lvl size (pos_x, pos_y)
   = foldr funForFold base
