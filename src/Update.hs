@@ -133,38 +133,40 @@ performAction _ SPECIAL_BUTTON player = player
 -- | Try to move the `MovingObject` by given offset.
 tryMove :: Float -> LevelMap -> MovingObject -> MovingObject
 tryMove dt level object
-  | canMoveAtThisLvl (new_x, new_y) = (\(MovingObject k p v a _ _)->(MovingObject k p v a updAnimC updAnimD)) new_obj
+  | canMoveAtThisLvl (new_x, new_y) = new_obj
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) updAnimC updAnimD)
+    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) animC animD)
   | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimCSlow updAnimD)
-  | canMoveAtThisLvl (new_x, old_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) updAnimC updAnimD)
+    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD)
   | canMoveAtThisLvl (new_x, old_y)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) updAnimCSlow updAnimD)
+    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) animC animD)
   | isPlayer kind
-    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) updAnimC updAnimD
+    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) animC animD
   | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimCSlow updAnimD
+    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD
   where
     (MovingObject kind old_pos@(old_x, old_y)
       (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
-    
-    updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
-    updAnimCSlow = (mod' (animC + dt*2) (getAnimDivisor kind))
+
+
+-- | Update the animation state of object.
+updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
+updateAnimation dt lvl (MovingObject kind pos@(old_x, old_y) vel@(vel_x, _) accel@(_, accel_y) animC animD)
+  | isPlayer kind =
+    MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
+  | otherwise =
+    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
+  where
     updAnimD
-      | not (canJump level old_pos) && vel_x > 0.6*tileSize = 7
-      | not (canJump level old_pos) && vel_x < -0.6*tileSize = 2
-      | accel_y <= 0 && vel_x > 0.6*tileSize = 6
-      | accel_y <= 0 && vel_x < -0.6*tileSize = 1
-      | not (canJump level old_pos) = if animD >= 5 then 7 else 2
+      | not (canJump lvl pos) && vel_x > 0.6 * tileSize = 7
+      | not (canJump lvl pos) && vel_x < -0.6 * tileSize = 2
+      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
+      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
+      | not (canJump lvl pos) = if animD >= 5 then 7 else 2
       | otherwise = if animD >= 5 then 5 else 0
 
-    isPlayer BigPlayer = True
-    isPlayer SmallPlayer = True
-    isPlayer _ = False
 
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
@@ -195,22 +197,27 @@ updateGame res dt (Game lvls player state) =
     updlvls = updateElemInList lvls (lvl { levelObjs = upd_objects }) (fromIntegral lvlNum)
     (MovingObject _ plr_pos _ _ _ _) = player
     upd_player =
-      ( tryMove dt lvlMap
-      . applyFriction lvlMap
-      . applyGravityAsVel dt
+      (( updatePlayer dt lvlMap
       . performActions lvlMap (S.toList (pressedKeys state))
-      ) player
+      ) player)
     upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs lvl)
+
+
+-- | Update player state.
+updatePlayer :: Float -> LevelMap -> MovingObject -> MovingObject
+updatePlayer dt lvlMap = 
+  updateAnimation dt lvlMap . tryMove dt lvlMap . applyFriction lvlMap . applyGravityAsVel dt
+
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
 updateObjects :: (Int, Int) -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
-updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
+updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
-    = ((tryMove dt lvl . applyGravityAsVel dt) obj)
-      : updateObjects res dt lvl plr_pos objs
-  | otherwise = obj : updateObjects res dt lvl plr_pos objs
+    = ((updateAnimation dt lvlMap . tryMove dt lvlMap . applyGravityAsVel dt) obj)
+      : updateObjects res dt lvlMap plr_pos objs
+  | otherwise = obj : updateObjects res dt lvlMap plr_pos objs
   where
     (MovingObject _ (pos_x, _) _ _ _ _) = obj
     leftBoundary = plr_pos_x - (fromIntegral res_x)

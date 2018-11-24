@@ -106,6 +106,10 @@ textScaleFactor = 0.008 * tileSize
 gameScaleFactor :: Float
 gameScaleFactor = 1
 
+-- | Speed of animation.
+animationScale::Float
+animationScale = 6
+
 -- ------------------------ Game constants ------------------------ --
 
 -- | Gravity of the world.
@@ -121,11 +125,20 @@ step = (0.3 * tileSize, 0.6 * g)
 thresh :: Float
 thresh = 0.05 * tileSize
 
+-- | Is this object a player?
+isPlayer BigPlayer = True
+isPlayer SmallPlayer = True
+isPlayer _ = False
+
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
 canPass Empty = True
--- canPass HiddenBlockLivesUp = True
+canPass HiddenBlockLivesUp = True
 canPass _ = False
+
+-- | Determines the speed of animation for different kinds of objects.
+getAnimDivisor:: Kind -> Float
+getAnimDivisor _ = 1000
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
