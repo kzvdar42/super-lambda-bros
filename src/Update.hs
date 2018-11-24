@@ -36,13 +36,13 @@ performCollisions (c:cs) (Game lvls player state) =
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
         newlvls = updateElemInList lvls newlvl (fromIntegral lvlNum)
-        newlvl = Level {
-          levelMap = levelMap lvl
-          , levelObjs =
-            ((MovingObject objKind
+        newlvl = Level 
+          { levelMap = levelMap lvl
+          , levelInitPoint = levelInitPoint lvl
+          , levelObjs = ((MovingObject objKind
               (mapCoordToPos (tile_x + off_x, tile_y + off_y))
               (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects)
-        }
+          }
       in
       (Game newlvls player state)
     (Change tile, tile_pos) ->
@@ -50,11 +50,15 @@ performCollisions (c:cs) (Game lvls player state) =
     (Bounce, _) ->
       Game lvls (MovingObject kind pos
         (vel_x, -2 * minObjSize) (accel_x, 0.0)) state
+    (CollectCoin, _) -> Game lvls player (incrementCoins state)
   where
     lvl = lvls !! lvlNum  -- TODO: Do this is a safe way
     objects = levelObjs lvl
     (MovingObject kind pos (vel_x, _) (accel_x, _)) = player
     lvlNum = gameStateLvlNum state
+    incrementCoins (GameState hp coins l n_lvl ks)
+      | coins < 100 = GameState hp       (coins + 1)  l n_lvl ks
+      | otherwise   = GameState (hp + 1) (coins - 99) l n_lvl ks
 
 -- -- | Apply gravity to the `MovingObject`.
 -- applyGravity :: Float -> MovingObject -> MovingObject
@@ -153,11 +157,11 @@ tryMove dt level object
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
 canMove lvl pos@(pos_x, pos_y) =
-  case (left_bot, left_top, right_bot, right_top) of
-    (Just t1, Just t2, Just t3, Just t4) ->
-      canPass t1 && canPass t2 && canPass t3 && canPass t4
-    _ -> False
+  canM left_bot && canM left_top && canM right_bot && canM right_top
   where
+    canM maybeT = case maybeT of
+      Nothing -> True
+      Just t -> canPass t
     left_bot = takeElemFromMatrix lvl (x, y)
     left_top = takeElemFromMatrix lvl (x, y_r)
     right_bot = takeElemFromMatrix lvl (x_r, y)

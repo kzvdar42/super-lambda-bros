@@ -44,6 +44,7 @@ drawGame assets res game@(Game levels player state) =
       drawLvl assets (levelMap lvl)
       <> pictures (map (drawObject assets) (levelObjs lvl))
       <> drawObject assets player)
+    info = showScaledText (gameStateCoins state)
     fres = getFloating res
     mapHeight = getMapHeight game
     composedRelative = alignWorldToX ((*) gameScale $ fst pos)
@@ -52,6 +53,8 @@ drawGame assets res game@(Game levels player state) =
     composedRelative
     <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
       (centerPictureY mapHeight gameScale debug)
+    <> translate ((fst fres - coordOffset) / 2) 
+      ((snd fres - coordOffset) / 2) info
 
 -- | Draw the level.
 drawLvl :: Assets -> LevelMap -> Picture
@@ -72,14 +75,19 @@ drawLine assets tiles
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
 drawTile assets Brick = getAssetFromList (envSprites assets) 0
+drawTile assets BrickCoinBlock = getAssetFromList (envSprites assets) 0
+drawTile assets BrickStarBlock = getAssetFromList (envSprites assets) 0
 drawTile assets Ground = getAssetFromList (envSprites assets) 1
-drawTile assets BonusBlockActive = getAssetFromList (envSprites assets) 2
+drawTile assets BonusBlockCoin = getAssetFromList (envSprites assets) 2
+drawTile assets BonusBlockPowerUp = getAssetFromList (envSprites assets) 2
 drawTile assets BonusBlockEmpty = getAssetFromList (envSprites assets) 3
 drawTile assets PipeGreenTopLeft = getAssetFromList (envSprites assets) 4
 drawTile assets PipeGreenTopRight = getAssetFromList (envSprites assets) 5
 drawTile assets PipeGreenLeft = getAssetFromList (envSprites assets) 6
 drawTile assets PipeGreenRight = getAssetFromList (envSprites assets) 7
 drawTile assets RomboBlock = getAssetFromList (envSprites assets) 8
+drawTile assets Coin = getAssetFromList (envSprites assets) 9
+drawTile _ HiddenBlockLivesUp = blank
 drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
 
 -- | Draw the object kind.
@@ -89,8 +97,9 @@ drawKind assets SmallPlayer = getAssetFromList (marioSprites assets) 0
 drawKind assets Gumba = getAssetFromList (enemySprites assets) 0
 drawKind assets Turtle = getAssetFromList (enemySprites assets) 1
 drawKind assets Mushroom = getAssetFromList (enemySprites assets) 2
-drawKind assets Shell = getAssetFromList (enemySprites assets) 3
-drawKind assets Star = getAssetFromList (enemySprites assets) 4
+drawKind assets Star = getAssetFromList (enemySprites assets) 3
+drawKind assets Shell = getAssetFromList (enemySprites assets) 4
+drawKind assets HpMushroom = getAssetFromList (enemySprites assets) 5
 
 -- | Safely get the asset from the provided list.
 -- If the asset is not found, return a placaholder picture.

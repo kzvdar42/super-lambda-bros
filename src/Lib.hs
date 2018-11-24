@@ -12,7 +12,11 @@ import Graphics.Gloss
 data Tile
   = Ground
   | Brick
-  | BonusBlockActive
+  | BrickCoinBlock
+  | BrickStarBlock
+  | BonusBlockCoin
+  | BonusBlockPowerUp
+  | HiddenBlockLivesUp
   | BonusBlockEmpty
   | Empty
   | PipeGreenTopLeft
@@ -20,6 +24,7 @@ data Tile
   | PipeGreenLeft
   | PipeGreenRight
   | RomboBlock
+  | Coin
 
 -- | Map of the level.
 type LevelMap = [[Tile]]
@@ -28,6 +33,7 @@ type LevelMap = [[Tile]]
 data Level = Level
   { levelMap :: LevelMap
   , levelObjs :: [MovingObject]
+  , levelInitPoint :: Coord
   }
 
 -- | Types of possible player input
@@ -37,6 +43,7 @@ data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_B
 -- | State of the game (HP levelNumber nextLevel).
 data GameState = GameState
   { gameStateHp          :: Int
+  , gameStateCoins       :: Int
   , gameStateLvlNum      :: Int
   , gameStateNextLvlNum  :: Maybe Int
   , pressedKeys          :: S.Set Movement
@@ -66,11 +73,12 @@ data Kind
   | Turtle
   -- Items
   | Mushroom
+  | HpMushroom
   | Star
   | Shell
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce
+data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -116,6 +124,7 @@ thresh = 0.05 * tileSize
 -- | Can Objects move through this tile?
 canPass :: Tile -> Bool
 canPass Empty = True
+-- canPass HiddenBlockLivesUp = True
 canPass _ = False
 
 -- | Friction rate of the tiles.
@@ -126,8 +135,16 @@ tileFrictionRate _ = 0.03
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
 typeOfCollision Brick = [Delete, Bounce]
-typeOfCollision BonusBlockActive
+typeOfCollision BrickCoinBlock
+  = [CollectCoin, Change BonusBlockEmpty, Bounce]
+typeOfCollision BrickStarBlock
+  = [Spawn Star (0, 1), Change BonusBlockEmpty, Bounce]
+typeOfCollision BonusBlockCoin
+  = [CollectCoin, Change BonusBlockEmpty, Bounce]
+typeOfCollision BonusBlockPowerUp
   = [Spawn Mushroom (0, 1), Change BonusBlockEmpty, Bounce]
+typeOfCollision HiddenBlockLivesUp
+  = [Spawn HpMushroom (0, 1), Change BonusBlockEmpty, Bounce]
 typeOfCollision Empty = []
 typeOfCollision _ = [Bounce]
 
@@ -138,6 +155,7 @@ getSize SmallPlayer = (minObjSize, minObjSize)
 getSize Gumba =       (minObjSize, minObjSize)
 getSize Turtle =      (minObjSize, minObjSize * 2)
 getSize Mushroom =    (minObjSize, minObjSize)
+getSize HpMushroom =  (minObjSize, minObjSize)
 getSize Star =        (minObjSize, minObjSize)
 getSize Shell =       (minObjSize, minObjSize)
 
@@ -147,27 +165,33 @@ getInitSpeed SmallPlayer = (0, 0)
 getInitSpeed Gumba =       (-1 * tileSize, 0)
 getInitSpeed Turtle =      (-1 * tileSize, 0)
 getInitSpeed Mushroom =    (-1 * tileSize, 0)
-getInitSpeed Star =        (-1 * tileSize, 0)
+getInitSpeed HpMushroom =  (-1 * tileSize, 0)
+getInitSpeed Star =        (-1 * tileSize, -1)
 getInitSpeed Shell =       (-1 * tileSize, 0)
 
 -- ------------------------ Game initialization ------------------------ --
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels = Game levels initPlayer initState
+initGame levels = 
+  Game levels 
+    (initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))) initState
 
 -- | Init state of the game.
 initState :: GameState
 initState =  GameState
   { gameStateHp = 3
+  , gameStateCoins = 0
   , gameStateLvlNum = 0
   , gameStateNextLvlNum = Nothing
   , pressedKeys = S.empty
   }
 
 -- | Initial state of the player.
-initPlayer :: MovingObject
-initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0)
+initPlayer :: Coord -> MovingObject
+initPlayer (coord_x, coord_y)
+  = MovingObject SmallPlayer
+    (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize) (0.0, 0.0) (0.0, 0.0)
 
 -- ------------------------ Work with map ------------------------ --
 
