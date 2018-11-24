@@ -83,14 +83,25 @@ drawTile assets RomboBlock = getAssetFromList (envSprites assets) 8
 drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
 
 -- | Draw the object kind.
-drawKind :: Assets -> Kind -> Picture
-drawKind assets BigPlayer = getAssetFromList (marioSprites assets) 0
-drawKind assets SmallPlayer = getAssetFromList (marioSprites assets) 0
-drawKind assets Gumba = getAssetFromList (enemySprites assets) 0
-drawKind assets Turtle = getAssetFromList (enemySprites assets) 1
-drawKind assets Mushroom = getAssetFromList (enemySprites assets) 2
-drawKind assets Shell = getAssetFromList (enemySprites assets) 3
-drawKind assets Star = getAssetFromList (enemySprites assets) 4
+drawKind :: Assets -> Kind -> Float -> Int -> Picture
+drawKind assets BigPlayer animC animD = getAssetFromList (marioSprites assets) 0
+drawKind assets SmallPlayer animC animD = drawSmallPlayer assets animC animD--text (show animD)--getAssetFromList (marioSprites assets) 0 --drawSmallPlayer assets animC animD
+drawKind assets Gumba animC animD = getAssetFromList (enemySprites assets) 0
+drawKind assets Turtle animC animD = getAssetFromList (enemySprites assets) 1
+drawKind assets Mushroom animC animD = getAssetFromList (enemySprites assets) 2
+drawKind assets Shell animC animD = getAssetFromList (enemySprites assets) 3
+drawKind assets Star animC animD = getAssetFromList (enemySprites assets) 4
+
+
+drawSmallPlayer::Assets->Float->Int->Picture
+drawSmallPlayer assets animC 1 = getAssetFromList (marioSprites assets) (2 + ((round animC) `mod` 4))
+drawSmallPlayer assets animC 0 = getAssetFromList (marioSprites assets) 6
+drawSmallPlayer assets animC 5 = getAssetFromList (marioSprites assets) 13
+drawSmallPlayer assets animC 6 = getAssetFromList (marioSprites assets) (9 + ((round animC) `mod` 4))
+drawSmallPlayer assets animC 2 = getAssetFromList (marioSprites assets) 0
+drawSmallPlayer assets animC 7 = getAssetFromList (marioSprites assets) 7
+drawSmallPlayer assets _ _ = getAssetFromList (marioSprites assets) 0
+
 
 -- | Safely get the asset from the provided list.
 -- If the asset is not found, return a placaholder picture.
@@ -106,7 +117,7 @@ drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
   = translate
     (pos_x + (size_x - minObjSize) / 2)
     (pos_y + (size_y - minObjSize) / 2)
-    (drawKind assets kind)
+    (drawKind assets kind animC animD)
   where
     (size_x, size_y) = getSize kind
 

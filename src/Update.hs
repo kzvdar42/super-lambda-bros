@@ -5,7 +5,7 @@ module Update where
 import qualified Data.Set as S
 
 import Lib
-
+import Data.Fixed (mod')
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
@@ -121,20 +121,28 @@ tryMove :: Float -> Level -> MovingObject -> MovingObject
 tryMove dt level object
   | canMoveAtThisLvl (new_x, new_y) = new_obj
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) animC animD)
+    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) updAnimC updAnimD)
   | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD)
+    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimC updAnimD)
   | canMoveAtThisLvl (new_x, old_y)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) animC animD)
+    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) updAnimC updAnimD)
   | isPlayer kind
-    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) animC animD
+    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) updAnimC updAnimD
   | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD
+    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimC updAnimD
   where
     (MovingObject kind old_pos@(old_x, old_y)
       (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
+    updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
+    updAnimD
+      | vel_y > 0 && vel_x > 0.6*tileSize = 7
+      | vel_y > 0 && vel_x < -0.6*tileSize = 2
+      | vel_y <= 0 && vel_x > 0.6*tileSize = 6
+      | vel_y <= 0 && vel_x < -0.6*tileSize = 1
+      | vel_y > 0 = if animD >= 5 then 7 else 2
+      | otherwise = if animD >= 5 then 5 else 0
 
     isPlayer BigPlayer = True
     isPlayer SmallPlayer = True
@@ -179,7 +187,7 @@ updateObjects :: (Int, Int) -> Float -> Level -> Position -> [MovingObject] -> [
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
-    = performAnimation ((tryMove dt lvl . applyGravityAsVel dt) obj)
+    = performAnimation dt ((tryMove dt lvl . applyGravityAsVel dt) obj)
       : updateObjects res dt lvl plr_pos objs
   | otherwise = obj : updateObjects res dt lvl plr_pos objs
   where
@@ -187,8 +195,14 @@ updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
     leftBoundary = plr_pos_x - (fromIntegral res_x)
     rightBoundary = plr_pos_x + (fromIntegral res_x)/2
 
-getAnimDivisor:: Kind -> Float
-getAnimDivisor kind = 10
+animationScale::Float
+animationScale = 6
 
-performAnimation :: MovingObject -> MovingObject
-performAnimation obj@(MovingObject kind pos (velX, velY) acc animC animD) = obj
+getAnimDivisor:: Kind -> Float
+getAnimDivisor kind = 1000
+
+performAnimation :: Float -> MovingObject -> MovingObject
+performAnimation dt obj@(MovingObject kind pos (velX, velY) acc animC animD) 
+  = MovingObject kind pos (velX, velY) acc updAnimC animD
+    where updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
+          

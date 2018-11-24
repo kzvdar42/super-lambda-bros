@@ -2,7 +2,7 @@
 
 module Lib where
 
-import Data.Fixed (div')
+import Data.Fixed (div', mod')
 import qualified Data.Set as S
 import Graphics.Gloss
 
@@ -47,7 +47,7 @@ type Size = Vector2
 
 -- | Data type for the objects of the level.
 data MovingObject
-  = MovingObject Kind Position Velocity Acceleration Float Float
+  = MovingObject Kind Position Velocity Acceleration Float Int
 
 -- | Kind of the MovingObject.
 data Kind
@@ -151,7 +151,7 @@ initState =  GameState
 
 -- | Initial state of the player.
 initPlayer :: MovingObject
-initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0) 0 0
+initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0) 0 5
 
 -- | Initial amount of enemies.
 initObjects :: [MovingObject]
