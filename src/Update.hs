@@ -123,19 +123,22 @@ tryMove dt level object
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
     = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) updAnimC updAnimD)
   | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimC updAnimD)
-  | canMoveAtThisLvl (new_x, old_y)
+    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimCSlow updAnimD)
+  | canMoveAtThisLvl (new_x, old_y) && (isPlayer kind)
     = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) updAnimC updAnimD)
+  | canMoveAtThisLvl (new_x, old_y)
+    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) updAnimCSlow updAnimD)
   | isPlayer kind
     = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) updAnimC updAnimD
   | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimC updAnimD
+    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) updAnimCSlow updAnimD
   where
     (MovingObject kind old_pos@(old_x, old_y)
       (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
     updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
+    updAnimCSlow = (mod' (animC + dt*2) (getAnimDivisor kind))
     updAnimD
       | vel_y > 0 && vel_x > 0.6*tileSize = 7
       | vel_y > 0 && vel_x < -0.6*tileSize = 2
@@ -187,7 +190,7 @@ updateObjects :: (Int, Int) -> Float -> Level -> Position -> [MovingObject] -> [
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
-    = performAnimation dt ((tryMove dt lvl . applyGravityAsVel dt) obj)
+    = ((tryMove dt lvl . applyGravityAsVel dt) obj)
       : updateObjects res dt lvl plr_pos objs
   | otherwise = obj : updateObjects res dt lvl plr_pos objs
   where
@@ -201,8 +204,4 @@ animationScale = 6
 getAnimDivisor:: Kind -> Float
 getAnimDivisor kind = 1000
 
-performAnimation :: Float -> MovingObject -> MovingObject
-performAnimation dt obj@(MovingObject kind pos (velX, velY) acc animC animD) 
-  = MovingObject kind pos (velX, velY) acc updAnimC animD
-    where updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
           

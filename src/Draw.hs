@@ -86,11 +86,11 @@ drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tile
 drawKind :: Assets -> Kind -> Float -> Int -> Picture
 drawKind assets BigPlayer animC animD = getAssetFromList (marioSprites assets) 0
 drawKind assets SmallPlayer animC animD = drawSmallPlayer assets animC animD--text (show animD)--getAssetFromList (marioSprites assets) 0 --drawSmallPlayer assets animC animD
-drawKind assets Gumba animC animD = getAssetFromList (enemySprites assets) 0
-drawKind assets Turtle animC animD = getAssetFromList (enemySprites assets) 1
-drawKind assets Mushroom animC animD = getAssetFromList (enemySprites assets) 2
-drawKind assets Shell animC animD = getAssetFromList (enemySprites assets) 3
-drawKind assets Star animC animD = getAssetFromList (enemySprites assets) 4
+drawKind assets Gumba animC animD = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
+drawKind assets Turtle animC animD = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
+drawKind assets Mushroom animC animD = getAssetFromList (enemySprites assets) 4
+drawKind assets Shell animC animD = getAssetFromList (enemySprites assets) 6
+drawKind assets Star animC animD = getAssetFromList (enemySprites assets) 5
 
 
 drawSmallPlayer::Assets->Float->Int->Picture
