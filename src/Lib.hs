@@ -166,7 +166,7 @@ getInitSpeed Gumba =       (-1 * tileSize, 0)
 getInitSpeed Turtle =      (-1 * tileSize, 0)
 getInitSpeed Mushroom =    (-1 * tileSize, 0)
 getInitSpeed HpMushroom =  (-1 * tileSize, 0)
-getInitSpeed Star =        (-1 * tileSize, -1)
+getInitSpeed Star =        (-1 * tileSize, g)
 getInitSpeed Shell =       (-1 * tileSize, 0)
 
 -- ------------------------ Game initialization ------------------------ --

@@ -99,7 +99,7 @@ drawKind assets Turtle animC animD = getAssetFromList (enemySprites assets) (2 +
 drawKind assets Mushroom animC animD = getAssetFromList (enemySprites assets) 4
 drawKind assets Shell animC animD = getAssetFromList (enemySprites assets) 6
 drawKind assets Star animC animD = getAssetFromList (enemySprites assets) 5
-drawKind assets HpMushroom animC animD = getAssetFromList (enemySprites assets) 5
+drawKind assets HpMushroom animC animD = getAssetFromList (enemySprites assets) 7
 
 -- drawKind assets Star = getAssetFromList (enemySprites assets) 3
 -- drawKind assets Shell = getAssetFromList (enemySprites assets) 4

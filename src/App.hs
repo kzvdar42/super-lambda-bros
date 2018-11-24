@@ -75,7 +75,7 @@ run = do
   print $ "Screen Resolution: " ++ (show screenResolution)
   marioSprites <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
   envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
-  enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..6 :: Integer]))
+  enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..8 :: Integer]))
 
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
