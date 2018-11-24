@@ -119,7 +119,7 @@ performAction _ SPECIAL_BUTTON player = player
 -- | Try to move the `MovingObject` by given offset.
 tryMove :: Float -> Level -> MovingObject -> MovingObject
 tryMove dt level object
-  | canMoveAtThisLvl (new_x, new_y) = new_obj
+  | canMoveAtThisLvl (new_x, new_y) = (\(MovingObject k p v a _ _)->(MovingObject k p v a updAnimC updAnimD)) new_obj
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
     = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) updAnimC updAnimD)
   | canMoveAtThisLvl (old_x, new_y)
@@ -137,14 +137,15 @@ tryMove dt level object
       (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
+    
     updAnimC = (mod' (animC + dt * animationScale) (getAnimDivisor kind))
     updAnimCSlow = (mod' (animC + dt*2) (getAnimDivisor kind))
     updAnimD
-      | vel_y > 0 && vel_x > 0.6*tileSize = 7
-      | vel_y > 0 && vel_x < -0.6*tileSize = 2
-      | vel_y <= 0 && vel_x > 0.6*tileSize = 6
-      | vel_y <= 0 && vel_x < -0.6*tileSize = 1
-      | vel_y > 0 = if animD >= 5 then 7 else 2
+      | not (canJump level old_pos) && vel_x > 0.6*tileSize = 7
+      | not (canJump level old_pos) && vel_x < -0.6*tileSize = 2
+      | accel_y <= 0 && vel_x > 0.6*tileSize = 6
+      | accel_y <= 0 && vel_x < -0.6*tileSize = 1
+      | not (canJump level old_pos) = if animD >= 5 then 7 else 2
       | otherwise = if animD >= 5 then 5 else 0
 
     isPlayer BigPlayer = True
