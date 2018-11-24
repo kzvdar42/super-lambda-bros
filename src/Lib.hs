@@ -47,7 +47,7 @@ type Size = Vector2
 
 -- | Data type for the objects of the level.
 data MovingObject
-  = MovingObject Kind Position Velocity Acceleration
+  = MovingObject Kind Position Velocity Acceleration Float Float
 
 -- | Kind of the MovingObject.
 data Kind
@@ -151,27 +151,27 @@ initState =  GameState
 
 -- | Initial state of the player.
 initPlayer :: MovingObject
-initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0)
+initPlayer = MovingObject SmallPlayer (2 * tileSize, 2 * tileSize) (0.0, 0.0) (0.0, 0.0) 0 0
 
 -- | Initial amount of enemies.
 initObjects :: [MovingObject]
 initObjects =
-  [ initEnemy Gumba  21  2
-  , initEnemy Gumba  41  2
-  , initEnemy Gumba  54  2
-  , initEnemy Gumba  56  2
-  , initEnemy Gumba  81  10
-  , initEnemy Gumba  83  10
-  , initEnemy Gumba  98  4
-  , initEnemy Gumba  100 4
-  , initEnemy Gumba  116 2
-  , initEnemy Gumba  118 2
-  , initEnemy Gumba  125 2
-  , initEnemy Gumba  127 2
-  , initEnemy Gumba  130 2
-  , initEnemy Gumba  175 2
-  , initEnemy Gumba  177 2
-  , initEnemy Turtle 107 2
+  [ initEnemy Gumba  21  2 0 0
+  , initEnemy Gumba  41  2 0 0
+  , initEnemy Gumba  54  2 0 0
+  , initEnemy Gumba  56  2 0 0
+  , initEnemy Gumba  81  10 0 0
+  , initEnemy Gumba  83  10 0 0
+  , initEnemy Gumba  98  4 0 0
+  , initEnemy Gumba  100 4 0 0
+  , initEnemy Gumba  116 2 0 0
+  , initEnemy Gumba  118 2 0 0
+  , initEnemy Gumba  125 2 0 0
+  , initEnemy Gumba  127 2 0 0
+  , initEnemy Gumba  130 2 0 0
+  , initEnemy Gumba  175 2 0 0
+  , initEnemy Gumba  177 2 0 0
+  , initEnemy Turtle 107 2 0 0
   ]
   where
     initEnemy kind x_offset y_offset

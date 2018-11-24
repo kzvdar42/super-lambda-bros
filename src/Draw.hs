@@ -20,7 +20,7 @@ drawGame assets res game@(Game levels player objects state) =
     textScale = textScaleFactor * gameScale
     lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
     -- Debug output
-    (MovingObject _ pos@(pos_x, pos_y) _ _) = player
+    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
     charSize = 150 * textScale
@@ -84,7 +84,7 @@ drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tile
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Picture
-drawKind assets BigPlayer = getAssetFromList (marioSprites assets) 1
+drawKind assets BigPlayer = getAssetFromList (marioSprites assets) 0
 drawKind assets SmallPlayer = getAssetFromList (marioSprites assets) 0
 drawKind assets Gumba = getAssetFromList (enemySprites assets) 0
 drawKind assets Turtle = getAssetFromList (enemySprites assets) 1
@@ -102,7 +102,7 @@ getAssetFromList assets num =
 
 -- | Draw object.
 drawObject :: Assets -> MovingObject -> Picture
-drawObject assets (MovingObject kind (pos_x, pos_y) _ _)
+drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
   = translate
     (pos_x + (size_x - minObjSize) / 2)
     (pos_y + (size_y - minObjSize) / 2)

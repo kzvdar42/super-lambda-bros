@@ -17,7 +17,7 @@ checkCollision game@(Game levels player _ state) =
     Just tile -> performCollisions (map (\c -> (c, (x_close, y))) (typeOfCollision tile)) game
   where
     level = levels !! gameStateLvlNum state -- TODO: do this is a safe way.
-    (MovingObject kind (pos_x, pos_y) _ _ ) = player
+    (MovingObject kind (pos_x, pos_y) _ _ _ _) = player
     (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + (tileSize - minObjSize) - thresh)  -- TODO: change when will generalize minObjSize
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (x_close, x_far) =
@@ -36,14 +36,14 @@ performCollisions (c:cs) (Game lvls player objects state) =
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       (Game lvls player
         ((MovingObject objKind (mapCoordToPos (tile_x + off_x, tile_y + off_y))
-          (1.0 * tileSize, 0.0) (0.0, 0.0)) : objects) state)
+          (1.0 * tileSize, 0.0) (0.0, 0.0) animC animD) : objects) state)
     (Change tile, tile_pos) ->
       (Game (updateLvls lvls levelNum tile_pos tile) player objects state)
     (Bounce, _) ->
       Game lvls (MovingObject kind pos
-        (vel_x, -2 * minObjSize) (accel_x, 0.0)) objects state
+        (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD) objects state
   where
-    (MovingObject kind pos (vel_x, _) (accel_x, _)) = player
+    (MovingObject kind pos (vel_x, _) (accel_x, _) animC animD) = player
     levelNum = gameStateLvlNum state
 
 -- -- | Apply gravity to the `MovingObject`.
@@ -53,13 +53,13 @@ performCollisions (c:cs) (Game lvls player objects state) =
 
 -- | Apply gravity to the `MovingObject`.
 applyGravityAsVel :: Float -> MovingObject -> MovingObject
-applyGravityAsVel dt (MovingObject kind pos (vel_x, vel_y) accel)
-  = MovingObject kind pos (vel_x, vel_y - g * dt) accel
+applyGravityAsVel dt (MovingObject kind pos (vel_x, vel_y) accel animC animD)
+  = MovingObject kind pos (vel_x, vel_y - g * dt) accel animC animD
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: Level -> MovingObject -> MovingObject
-applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel)
-  = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel
+applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
+  = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel animC animD
   where
     allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
     takeFriction level (tile_x, tile_y) =
@@ -83,9 +83,9 @@ canJump lvl (pos_x, pos_y) =
 
 -- | Jump to the stars!
 tryJump :: Level -> MovingObject -> Position -> MovingObject
-tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel) (off_x, off_y)
+tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel animC animD) (off_x, off_y)
   | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
-    = MovingObject kind pos (vel_x + off_x, off_y) accel
+    = MovingObject kind pos (vel_x + off_x, off_y) accel animC animD
   | otherwise = player
   where
     inAir = canMove lvl (pos_x + thresh, pos_y - thresh)
@@ -93,13 +93,13 @@ tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel) (off_
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
-changeSpeed (MovingObject kind pos (vel_x, vel_y) accel) (off_x, off_y)
-  = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel
+changeSpeed (MovingObject kind pos (vel_x, vel_y) accel animC animD) (off_x, off_y)
+  = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel animC animD
 
 -- | Move Object due to it's velocity and acceleration.
 move :: Float -> MovingObject -> MovingObject
-move dt (MovingObject kind (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_y)) =
-  MovingObject kind (new_x, new_y) (vel_x + accel_x, vel_y + accel_y) accel
+move dt (MovingObject kind (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_y) animC animD) =
+  MovingObject kind (new_x, new_y) (vel_x + accel_x, vel_y + accel_y) accel animC animD
   where
     new_x = pos_x + vel_x * dt + accel_x * dt ** 2 / 2
     new_y = pos_y + vel_y * dt + accel_y * dt ** 2 / 2
@@ -121,20 +121,20 @@ tryMove :: Float -> Level -> MovingObject -> MovingObject
 tryMove dt level object
   | canMoveAtThisLvl (new_x, new_y) = new_obj
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y))
+    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) animC animD)
   | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y))
+    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD)
   | canMoveAtThisLvl (new_x, old_y)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0))
+    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) animC animD)
   | isPlayer kind
-    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0)
+    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) animC animD
   | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y)
+    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD
   where
     (MovingObject kind old_pos@(old_x, old_y)
-      (vel_x, vel_y) (accel_x, accel_y)) = object
+      (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
-    new_obj@(MovingObject _ (new_x, new_y) _ _) = move dt object
+    new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
 
     isPlayer BigPlayer = True
     isPlayer SmallPlayer = True
@@ -164,7 +164,7 @@ updateGame res dt (Game lvls player objects state) =
       (state {gameStateLvlNum = nextLevel, gameStateNextLvlNum = Nothing})
   where
     lvl = lvls !! gameStateLvlNum state -- TODO: make this is a safe way.
-    (MovingObject _ plr_pos _ _) = player
+    (MovingObject _ plr_pos _ _ _ _) = player
     upd_player =
       ( tryMove dt lvl
       . applyFriction lvl
@@ -179,10 +179,16 @@ updateObjects :: (Int, Int) -> Float -> Level -> Position -> [MovingObject] -> [
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvl plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
-    = (tryMove dt lvl . applyGravityAsVel dt) obj
+    = performAnimation ((tryMove dt lvl . applyGravityAsVel dt) obj)
       : updateObjects res dt lvl plr_pos objs
   | otherwise = obj : updateObjects res dt lvl plr_pos objs
   where
-    (MovingObject _ (pos_x, _) _ _) = obj
+    (MovingObject _ (pos_x, _) _ _ _ _) = obj
     leftBoundary = plr_pos_x - (fromIntegral res_x)
     rightBoundary = plr_pos_x + (fromIntegral res_x)/2
+
+getAnimDivisor:: Kind -> Float
+getAnimDivisor kind = 10
+
+performAnimation :: MovingObject -> MovingObject
+performAnimation obj@(MovingObject kind pos (velX, velY) acc animC animD) = obj
