@@ -2,7 +2,7 @@
 
 module Lib where
 
-import Data.Fixed (div')
+import Data.Fixed (div', mod')
 import qualified Data.Set as S
 import Graphics.Gloss
 
@@ -61,7 +61,7 @@ type Acceleration = Vector2
 type Size = Vector2
 
 -- | Data type for the objects of the level.
-data MovingObject = MovingObject Kind Position Velocity Acceleration
+data MovingObject = MovingObject Kind Position Velocity Acceleration Float Int
 
 -- | Kind of the MovingObject.
 data Kind
@@ -191,7 +191,7 @@ initState =  GameState
 initPlayer :: Coord -> MovingObject
 initPlayer (coord_x, coord_y)
   = MovingObject SmallPlayer
-    (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize) (0.0, 0.0) (0.0, 0.0)
+    (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize) (0.0, 0.0) (0.0, 0.0) 0 5
 
 -- ------------------------ Work with map ------------------------ --
 
