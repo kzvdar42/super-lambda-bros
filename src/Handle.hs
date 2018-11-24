@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE PatternGuards #-}
 
 module Handle where
 
@@ -10,28 +9,13 @@ import Lib
 
 -- | Update Player speed due to user input.
 handleGame :: G.Event -> Game -> Game
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyUp <- key
-  , G.Down               <- keyState
-    = Game lvls player (state {pressedKeys = (S.insert UP_BUTTON (pressedKeys state))})
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyUp <- key
-  , G.Up                 <- keyState
-    = Game lvls player (state {pressedKeys = (S.delete UP_BUTTON (pressedKeys state))})
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyLeft <- key
-  , G.Down                 <- keyState
-    = Game lvls player (state {pressedKeys = (S.insert LEFT_BUTTON (pressedKeys state))})
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyLeft <- key
-  , G.Up                   <- keyState
-    = Game lvls player (state {pressedKeys = (S.delete LEFT_BUTTON (pressedKeys state))})
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyRight <- key
-  , G.Down                  <- keyState
-    = Game lvls player (state {pressedKeys = (S.insert RIGHT_BUTTON (pressedKeys state))})
-handleGame (G.EventKey key keyState _ _) (Game lvls player state)
-  | G.SpecialKey G.KeyRight <- key
-  , G.Up                    <- keyState
-    = Game lvls player (state {pressedKeys = (S.delete RIGHT_BUTTON (pressedKeys state))})
-handleGame _ game  = game
+handleGame (G.EventKey (G.SpecialKey G.KeyUp) keyState _ _) = handleKeyPress keyState UP_BUTTON
+handleGame (G.EventKey (G.SpecialKey G.KeyLeft) keyState _ _) = handleKeyPress keyState LEFT_BUTTON
+handleGame (G.EventKey (G.SpecialKey G.KeyRight) keyState _ _) = handleKeyPress keyState RIGHT_BUTTON
+handleGame _ = id
+
+handleKeyPress :: G.KeyState -> Movement -> Game -> Game
+handleKeyPress keyState mov (Game lvls player state) =
+  case keyState of
+    G.Up -> Game lvls player (state {pressedKeys = (S.delete mov (pressedKeys state))})
+    G.Down -> Game lvls player (state {pressedKeys = (S.insert mov (pressedKeys state))})
