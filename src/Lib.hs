@@ -40,17 +40,22 @@ data Level = Level
 data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
   deriving (Eq, Ord, Show)
 
--- | State of the game (HP levelNumber nextLevel).
+-- | State of the game.
 data GameState = GameState
-  { gameStateHp          :: Int
-  , gameStateCoins       :: Int
-  , gameStateLvlNum      :: Int
-  , gameStateNextLvlNum  :: Maybe Int
-  , pressedKeys          :: S.Set Movement
+  { gameStateHp          :: Int            -- ^ Number of player lifes
+  , gameStateCoins       :: Int            -- ^ Number of coins
+  , gameStateLvlNum      :: Int            -- ^ Current level number
+  , gameStateNextLvlNum  :: Maybe Int      -- ^ Next level number
+  , pressedKeys          :: S.Set Movement -- ^ List of current pressed keys
   }
 
---   Game        Levels  Player       State
-data Game = Game [Level] MovingObject GameState
+-- | Current state of the game.
+data Game
+  = Game
+    [Level]      -- ^ Levels
+    Level        -- ^ Current level
+    MovingObject -- ^ Player
+    GameState    -- ^ State of the Game
 
 -- Objects
 type Vector2 = (Float, Float)
@@ -81,9 +86,10 @@ data Kind
   | HpMushroom
   | Star
   | Shell
+  | Flagpole
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin
+data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -177,6 +183,7 @@ getSize Mushroom =    (minObjSize, minObjSize)
 getSize HpMushroom =  (minObjSize, minObjSize)
 getSize Star =        (minObjSize, minObjSize)
 getSize Shell =       (minObjSize, minObjSize)
+getSize Flagpole =    (1 * tileSize, 10 * tileSize)
 
 getInitSpeed :: Kind -> Vector2
 getInitSpeed BigPlayer =   (0, 0)
@@ -187,14 +194,16 @@ getInitSpeed Mushroom =    (-1 * tileSize, 0)
 getInitSpeed HpMushroom =  (-1 * tileSize, 0)
 getInitSpeed Star =        (-1 * tileSize, g)
 getInitSpeed Shell =       (-1 * tileSize, 0)
+getInitSpeed Flagpole =    (0, 0)
 
 -- ------------------------ Game initialization ------------------------ --
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels = 
-  Game levels 
-    (initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))) initState
+initGame levels =
+  Game levels currLevel (initPlayer (levelInitPoint currLevel)) initState
+  where
+    currLevel = (levels !! gameStateLvlNum initState)
 
 -- | Init state of the game.
 initState :: GameState
@@ -230,16 +239,16 @@ takeElemFromList (_:ls) n = takeElemFromList ls (n - 1)
 updateLvlMap :: [Level] -> Int -> Coord -> Tile -> [Level]
 updateLvlMap [] _ _ _ = []
 updateLvlMap (l:ls) 0 pos tile
-  = l { levelMap = updateElemInmatrix (levelMap l) pos tile } : ls
+  = l { levelMap = updateElemInMatrix (levelMap l) pos tile } : ls
 updateLvlMap (l:ls) n pos tile = l : updateLvlMap ls (n - 1) pos tile
 
 -- | Update the tile in the level.
-updateElemInmatrix :: [[a]] -> Coord -> a -> [[a]]
-updateElemInmatrix [] _ _ = []
-updateElemInmatrix (l:ls) (pos_x, 0) tile
+updateElemInMatrix :: [[a]] -> Coord -> a -> [[a]]
+updateElemInMatrix [] _ _ = []
+updateElemInMatrix (l:ls) (pos_x, 0) tile
   = updateElemInList l tile pos_x : ls
-updateElemInmatrix (l:ls) (pos_x, pos_y) tile
-  = l : updateElemInmatrix ls (pos_x, pos_y - 1) tile
+updateElemInMatrix (l:ls) (pos_x, pos_y) tile
+  = l : updateElemInMatrix ls (pos_x, pos_y - 1) tile
 
 -- | Update element in list.
 updateElemInList :: [a] -> a -> Integer -> [a]

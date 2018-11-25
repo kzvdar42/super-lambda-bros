@@ -10,17 +10,13 @@ import Graphics.Gloss
 
 import Lib
 
--- | Convert a pair of integers into a pair of floats.
-getFloating :: (Int, Int) -> (Float, Float)
-getFloating (a, b) = (fromIntegral a, fromIntegral b)
-
 -- | Draw the game.
 drawGame :: Assets -> (Int, Int) -> Game -> Picture
-drawGame assets res game@(Game levels player state) =
+drawGame assets res (Game _ curlvl player state) =
   let
     gameScale = gameScaleFactor * (snd fres) / mapHeight
     textScale = textScaleFactor * gameScale
-    lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
+    lvlMap = levelMap curlvl
     -- Debug output
     (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = player
     (сoord_x, coord_y) = mapPosToCoord pos
@@ -43,19 +39,19 @@ drawGame assets res game@(Game levels player state) =
         <> translate 0  (-coordOffset) inputEvents
       )
     composed = scale gameScale gameScale (
-      drawLvl assets (levelMap lvl)
-      <> pictures (map (drawObject assets) (levelObjs lvl))
+      drawLvl assets lvlMap
+      <> pictures (map (drawObject assets) (levelObjs curlvl))
       <> drawObject assets player)
     info = showScaledText (gameStateCoins state)
-    fres = getFloating res
-    mapHeight = getMapHeight game
+    fres = (fromIntegral (fst res), fromIntegral (snd res))
+    mapHeight = getMapHeight lvlMap
     composedRelative = alignWorldToX ((*) gameScale $ fst pos)
-      (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
+      (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
     composedRelative
     <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
       (centerPictureY mapHeight gameScale debug)
-    <> translate ((fst fres - coordOffset) / 2) 
+    <> translate ((fst fres - coordOffset) / 2)
       ((snd fres - coordOffset) / 2) info
 
 -- | Draw the level.
@@ -109,9 +105,10 @@ drawKind assets SmallPlayer animC animD = drawSmallPlayer (marioSprites assets) 
 drawKind assets Gumba animC _ = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
 drawKind assets Turtle animC _ = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
 drawKind assets Mushroom _ _ = getAssetFromList (enemySprites assets) 4
-drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
 drawKind assets Star _ _ = getAssetFromList (enemySprites assets) 5
+drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
 drawKind assets HpMushroom _ _ = getAssetFromList (enemySprites assets) 7
+drawKind assets Flagpole _ _ = getAssetFromList (enemySprites assets) 8
 
 
 drawSmallPlayer :: [Picture] -> Float -> Int -> Picture
@@ -134,10 +131,8 @@ getAssetFromList assets num =
     Nothing -> scale tileSize tileSize (color black (rectangleSolid 1 1))
 
 -- | Based on tile count of stored map calculate map size
-getMapHeight :: Game -> Float
-getMapHeight (Game lvls _ state) = len * tileSize
-  where
-    len = fromIntegral (length (levelMap (lvls !! gameStateLvlNum state))) -- TODO: do this safe
+getMapHeight :: LevelMap -> Float
+getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
 
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
@@ -151,10 +146,9 @@ alignWorldToX x (offsetL, offsetR)
   | otherwise = translate (-x) 0
 
 -- | Calculate offsets to limit map drawing on sides
-getScreenOffset :: (Float, Float) -> Game -> Float -> Position
-getScreenOffset (width, _) (Game levels _ state) gameScale
+getScreenOffset :: (Float, Float) -> LevelMap -> Float -> Position
+getScreenOffset (width, _) lvlMap gameScale
   = (offset, size - offset - tileSize * gameScale)
   where
     offset = (width - tileSize * gameScale) / 2
     size = gameScale * tileSize * (fromIntegral $ length (lvlMap !! 0))
-    lvlMap = levelMap (levels !! gameStateLvlNum state)
