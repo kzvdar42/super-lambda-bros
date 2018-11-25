@@ -121,6 +121,8 @@ drawSmallPlayer mSprites _ 5 = getAssetFromList mSprites 13
 drawSmallPlayer mSprites animC 6 = getAssetFromList mSprites (9 + ((round animC) `mod` 4))
 drawSmallPlayer mSprites _ 2 = getAssetFromList mSprites 0
 drawSmallPlayer mSprites _ 7 = getAssetFromList mSprites 7
+drawSmallPlayer mSprites _ 3 = getAssetFromList mSprites 1
+drawSmallPlayer mSprites _ 8 = getAssetFromList mSprites 8
 drawSmallPlayer mSprites _ _ = getAssetFromList mSprites 0
 
 -- | Safely get the asset from the provided list.

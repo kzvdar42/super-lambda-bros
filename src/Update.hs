@@ -153,18 +153,20 @@ tryMove dt level object
 
 -- | Update the animation state of object.
 updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
-updateAnimation dt lvl (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
+updateAnimation dt lvl (MovingObject kind pos vel@(vel_x, _) accel@(accel_x, accel_y) animC animD)
   | isPlayer kind =
     MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
   | otherwise =
-    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
+    MovingObject kind pos vel accel (mod' (animC + dt * 2) (getAnimDivisor kind)) updAnimD
   where
     updAnimD
       | not (canJump lvl pos) && vel_x > 0.6 * tileSize = 7
       | not (canJump lvl pos) && vel_x < -0.6 * tileSize = 2
-      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
-      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
       | not (canJump lvl pos) = if animD >= 5 then 7 else 2
+      -- | accel_x == 0 = 8
+      -- | accel_x > 0 && vel_x < 0 = 3
+      | vel_x > 0.6 * tileSize = 6
+      | vel_x < -0.6 * tileSize = 1
       | otherwise = if animD >= 5 then 5 else 0
 
 -- | Checks if the simple `MovingObject` can move at this position.

@@ -63,6 +63,11 @@ type Size = Vector2
 -- | Data type for the objects of the level.
 data MovingObject = MovingObject Kind Position Velocity Acceleration Float Int
 
+-- | Data type for the animation handling
+data Sprite = Sprite Position Float Int Callback
+
+
+
 -- | Kind of the MovingObject.
 data Kind
   -- Player
