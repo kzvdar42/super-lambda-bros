@@ -18,7 +18,7 @@ checkCollision game@(Game _ curlvl player _) =
     Just tile -> performCollisions (map (\c -> (c, (x_close, y))) (typeOfCollision tile)) game
   where
     (MovingObject kind (pos_x, pos_y) _ _ _ _) = player
-    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + (tileSize - minObjSize) - thresh)  -- TODO: change when will generalize minObjSize
+    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (x_close, x_far) =
       if pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x
@@ -80,32 +80,35 @@ applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
     allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
     takeFriction level (tile_x, tile_y) =
       case takeElemFromMatrix level (mapPosToCoord (tile_x, tile_y - thresh)) of
-        Nothing -> 0
+        Nothing -> tileFrictionRate Empty
         Just tile -> tileFrictionRate tile
 
 -- | Check if the object can jump from this position.
 canJump :: LevelMap -> Position -> Bool
-canJump lvl (pos_x, pos_y) =
+canJump lvlMap (pos_x, pos_y) =
   case (left_bot, right_bot) of
     (Just l_tile, Just r_tile) -> not (canPass l_tile && canPass r_tile)
     (Just l_tile, _) -> not $ canPass l_tile
     (_, Just r_tile) -> not $ canPass r_tile
     (Nothing, Nothing) -> False
   where
-    left_bot = takeElemFromMatrix lvl (x, y)
-    right_bot = takeElemFromMatrix lvl (x_r, y)
-    (x, y) = mapPosToCoord (pos_x, pos_y - thresh)
-    (x_r, _) = mapPosToCoord (pos_x + minObjSize, 0)
+    left_bot = takeElemFromMatrix lvlMap (x, y)
+    right_bot = takeElemFromMatrix lvlMap (x_r, y)
+    (x, y) = mapPosToCoord (pos_x + thresh, pos_y - thresh)
+    (x_r, _) = mapPosToCoord (pos_x + minObjSize - thresh, 0)
+
+-- | CanJump for MovingObjects.
+canObjJump :: LevelMap -> Size -> Position -> Bool
+canObjJump lvlMap (size_x, _) (pos_x, pos_y) =
+  checkForAnyPart canJump lvlMap (size_x, minObjSize) (pos_x, pos_y)
 
 -- | Jump to the stars!
 tryJump :: LevelMap -> MovingObject -> Position -> MovingObject
-tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel animC animD) (off_x, off_y)
-  | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
+tryJump lvlMap player@(MovingObject kind pos (vel_x, _) accel animC animD) (off_x, off_y)
+  | canObjJump lvlMap (getSize kind) pos
     = MovingObject kind pos (vel_x + off_x, off_y) accel animC animD
   | otherwise = player
-  where
-    inAir = canMove lvl (pos_x + thresh, pos_y - thresh)
-    (size_x, _) = (getSize kind)
+    
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
@@ -152,25 +155,9 @@ tryMove dt level object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
 
--- | Update the animation state of object.
-updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
-updateAnimation dt lvl (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
-  | isPlayer kind =
-    MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
-  | otherwise =
-    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
-  where
-    updAnimD
-      | not (canJump lvl pos) && vel_x > 0.6 * tileSize = 7
-      | not (canJump lvl pos) && vel_x < -0.6 * tileSize = 2
-      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
-      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
-      | not (canJump lvl pos) = if animD >= 5 then 7 else 2
-      | otherwise = if animD >= 5 then 5 else 0
-
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
-canMove lvl pos@(pos_x, pos_y) =
+canMove lvl (pos_x, pos_y) =
   foldr ((&&) . canM) True [left_bot, left_top, right_bot, right_top]
   where
     canM maybeT = case maybeT of
@@ -180,8 +167,25 @@ canMove lvl pos@(pos_x, pos_y) =
     left_top = takeElemFromMatrix lvl (x, y_r)
     right_bot = takeElemFromMatrix lvl (x_r, y)
     right_top = takeElemFromMatrix lvl (x_r, y_r)
-    (x, y) = mapPosToCoord pos
-    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize, pos_y + minObjSize)
+    (x, y) = mapPosToCoord (pos_x + thresh, pos_y)
+    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize - thresh, pos_y + minObjSize)
+
+-- | Update the animation state of object.
+updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
+updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
+  | isPlayer kind =
+    MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
+  | otherwise =
+    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
+  where
+    canJ = canObjJump lvlMap (getSize kind) pos
+    updAnimD
+      | not canJ && vel_x > 0.6 * tileSize = 7
+      | not canJ && vel_x < -0.6 * tileSize = 2
+      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
+      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
+      | not canJ = if animD >= 5 then 7 else 2
+      | otherwise = if animD >= 5 then 5 else 0
 
 -- | Physics of the game.
 updateGame :: ScreenSize -> Float -> Game -> Game

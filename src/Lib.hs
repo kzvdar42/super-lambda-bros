@@ -103,7 +103,7 @@ tileSize = 16
 -- | Size of the minimum MovingObject.
 -- Size of the others should be a scalar multiplication of this.
 minObjSize :: Float
-minObjSize = 0.8 * tileSize
+minObjSize = 0.5 * tileSize
 
 -- | Size of the text.
 textScaleFactor :: Float
@@ -111,7 +111,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale.
 gameScaleFactor :: Float
-gameScaleFactor = 1
+gameScaleFactor = 1/2
 
 -- | Speed of animation.
 animationScale :: Float
@@ -130,7 +130,7 @@ step = (0.3 * tileSize, 0.6 * g)
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.05 * tileSize
+thresh = 0.1 * tileSize
 
 -- | Is this object a player?
 isPlayer :: Kind -> Bool
@@ -150,8 +150,8 @@ getAnimDivisor _ = 1000
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
-tileFrictionRate Empty = 0.04
-tileFrictionRate _ = 0.03
+tileFrictionRate Empty = 0.02
+tileFrictionRate _ = 0.015
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
@@ -171,14 +171,14 @@ typeOfCollision _ = [Bounce]
 
 -- | Get size of `MovingObject of given kind.
 getSize :: Kind -> Size
-getSize BigPlayer =   (minObjSize, minObjSize * 2)
-getSize SmallPlayer = (minObjSize, minObjSize)
-getSize Gumba =       (minObjSize, minObjSize)
-getSize Turtle =      (minObjSize, minObjSize * 2)
-getSize Mushroom =    (minObjSize, minObjSize)
-getSize HpMushroom =  (minObjSize, minObjSize)
-getSize Star =        (minObjSize, minObjSize)
-getSize Shell =       (minObjSize, minObjSize)
+getSize BigPlayer =   (minObjSize * 2, minObjSize * 4)
+getSize SmallPlayer = (minObjSize * 2, minObjSize * 2)
+getSize Gumba =       (minObjSize * 2, minObjSize * 2)
+getSize Turtle =      (minObjSize * 2, minObjSize * 3)
+getSize Mushroom =    (minObjSize * 2, minObjSize * 2)
+getSize HpMushroom =  (minObjSize * 2, minObjSize * 2)
+getSize Star =        (minObjSize * 2, minObjSize * 2)
+getSize Shell =       (minObjSize * 2, minObjSize * 2)
 getSize Flagpole =    (1 * tileSize, 10 * tileSize)
 
 getInitSpeed :: Kind -> Vector2
@@ -285,12 +285,12 @@ applyToParts
   -> Size                        -- ^ Size of the body
   -> Position                    -- ^ Placement of the body on the map
   -> b
-applyToParts funForFold base posFun lvl size (pos_x, pos_y)
+applyToParts funForFold base posFun lvl (size_x, size_y) (pos_x, pos_y)
   = foldr funForFold base
   (map (\(x, y) -> posFun lvl (pos_x + offset x, pos_y + offset y))
-    [(a, b) | a <- [0..count_x], b <- [0..count_y]])
+    [(a, b) | a <- [0..count_x - 1], b <- [0..count_y - 1]])
   where
-    (count_x, count_y) = mapPosToCoord size
+    (count_x, count_y) = (div' size_x minObjSize, div' size_y minObjSize)
     offset n = fromIntegral n * minObjSize
 
 -- | Returns the scale for this screen and level.

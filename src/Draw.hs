@@ -74,8 +74,8 @@ drawLine assets tiles
 drawObject :: Assets -> MovingObject -> Picture
 drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
   = translate
-    (pos_x + (size_x - minObjSize) / 2)
-    (pos_y + (size_y - minObjSize) / 2)
+    (pos_x + (size_x - tileSize) / 2)
+    (pos_y + (size_y - tileSize) / 2)
     (drawKind assets kind animC animD)
   where
     (size_x, size_y) = getSize kind
