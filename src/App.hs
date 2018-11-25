@@ -73,11 +73,11 @@ run :: IO ()
 run = do
   screenResolution <- getScreenSize
   print $ "Screen Resolution: " ++ (show screenResolution)
-  marioSprites <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
-  envSprites <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
-  enemySprites <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..8 :: Integer]))
+  spritesMario <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesEnv <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
+  spritesEnemy <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..8 :: Integer]))
 
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
-  let assets = Assets marioSprites envSprites enemySprites
-  play FullScreen (makeColor (92/255) (148/255) (252/255) (255/255)) 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)
+  let assets = Assets spritesMario spritesEnv spritesEnemy
+  play FullScreen (makeColorI 92 148 252 255) 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)

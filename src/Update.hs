@@ -3,9 +3,10 @@
 module Update where
 
 import qualified Data.Set as S
+import Data.Fixed (mod')
 
 import Lib
-import Data.Fixed (mod')
+
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
@@ -36,7 +37,7 @@ performCollisions (c:cs) (Game lvls player state) =
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
         newlvls = updateElemInList lvls newlvl (fromIntegral lvlNum)
-        newlvl = Level 
+        newlvl = Level
           { levelMap = levelMap lvl
           , levelInitPoint = levelInitPoint lvl
           , levelObjs = ((MovingObject objKind
@@ -86,9 +87,9 @@ canJump :: LevelMap -> Position -> Bool
 canJump lvl (pos_x, pos_y) =
   case (left_bot, right_bot) of
     (Just l_tile, Just r_tile) -> not (canPass l_tile && canPass r_tile)
-    (Nothing, Nothing) -> False
     (Just l_tile, _) -> not $ canPass l_tile
     (_, Just r_tile) -> not $ canPass r_tile
+    (Nothing, Nothing) -> False
   where
     left_bot = takeElemFromMatrix lvl (x, y)
     right_bot = takeElemFromMatrix lvl (x_r, y)
@@ -150,10 +151,9 @@ tryMove dt level object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
 
-
 -- | Update the animation state of object.
 updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
-updateAnimation dt lvl (MovingObject kind pos@(old_x, old_y) vel@(vel_x, _) accel@(_, accel_y) animC animD)
+updateAnimation dt lvl (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
   | isPlayer kind =
     MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
   | otherwise =
@@ -167,11 +167,10 @@ updateAnimation dt lvl (MovingObject kind pos@(old_x, old_y) vel@(vel_x, _) acce
       | not (canJump lvl pos) = if animD >= 5 then 7 else 2
       | otherwise = if animD >= 5 then 5 else 0
 
-
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
 canMove lvl pos@(pos_x, pos_y) =
-  canM left_bot && canM left_top && canM right_bot && canM right_top
+  foldr ((&&) . canM) True [left_bot, left_top, right_bot, right_top]
   where
     canM maybeT = case maybeT of
       Nothing -> True
@@ -202,12 +201,10 @@ updateGame res dt (Game lvls player state) =
       ) player)
     upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs lvl)
 
-
 -- | Update player state.
 updatePlayer :: Float -> LevelMap -> MovingObject -> MovingObject
 updatePlayer dt lvlMap = 
   updateAnimation dt lvlMap . tryMove dt lvlMap . applyFriction lvlMap . applyGravityAsVel dt
-
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
@@ -222,9 +219,3 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
     (MovingObject _ (pos_x, _) _ _ _ _) = obj
     leftBoundary = plr_pos_x - (fromIntegral res_x)
     rightBoundary = plr_pos_x + (fromIntegral res_x)/2
-
-animationScale::Float
-animationScale = 6
-
-getAnimDivisor:: Kind -> Float
-getAnimDivisor kind = 1000

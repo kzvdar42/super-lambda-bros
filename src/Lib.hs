@@ -2,7 +2,7 @@
 
 module Lib where
 
-import Data.Fixed (div', mod')
+import Data.Fixed (div')
 import qualified Data.Set as S
 import Graphics.Gloss
 
@@ -107,7 +107,7 @@ gameScaleFactor :: Float
 gameScaleFactor = 1
 
 -- | Speed of animation.
-animationScale::Float
+animationScale :: Float
 animationScale = 6
 
 -- ------------------------ Game constants ------------------------ --
@@ -126,6 +126,7 @@ thresh :: Float
 thresh = 0.05 * tileSize
 
 -- | Is this object a player?
+isPlayer :: Kind -> Bool
 isPlayer BigPlayer = True
 isPlayer SmallPlayer = True
 isPlayer _ = False
@@ -137,7 +138,7 @@ canPass HiddenBlockLivesUp = True
 canPass _ = False
 
 -- | Determines the speed of animation for different kinds of objects.
-getAnimDivisor:: Kind -> Float
+getAnimDivisor :: Kind -> Float
 getAnimDivisor _ = 1000
 
 -- | Friction rate of the tiles.
