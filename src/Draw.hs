@@ -11,10 +11,10 @@ import Graphics.Gloss
 import Lib
 
 -- | Draw the game.
-drawGame :: Assets -> (Int, Int) -> Game -> Picture
+drawGame :: Assets -> ScreenSize -> Game -> Picture
 drawGame assets res (Game _ curlvl player state) =
   let
-    gameScale = gameScaleFactor * (snd fres) / mapHeight
+    gameScale = getGameScale res lvlMap
     textScale = textScaleFactor * gameScale
     lvlMap = levelMap curlvl
     -- Debug output
@@ -127,10 +127,6 @@ getAssetFromList assets num =
   case takeElemFromList assets num of
     Just p -> p
     Nothing -> scale tileSize tileSize (color black (rectangleSolid 1 1))
-
--- | Based on tile count of stored map calculate map size
-getMapHeight :: LevelMap -> Float
-getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
 
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture

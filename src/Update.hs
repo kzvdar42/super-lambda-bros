@@ -184,7 +184,7 @@ canMove lvl pos@(pos_x, pos_y) =
     (x_r, y_r) = mapPosToCoord (pos_x + minObjSize, pos_y + minObjSize)
 
 -- | Physics of the game.
-updateGame :: (Int, Int) -> Float -> Game -> Game
+updateGame :: ScreenSize -> Float -> Game -> Game
 updateGame res dt game@(Game lvls curlvl player state) =
   case gameStateNextLvlNum state of
     Nothing -> checkCollision (Game lvls updlvl upd_player state)
@@ -206,7 +206,7 @@ updatePlayer dt lvlMap =
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
-updateObjects :: (Int, Int) -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
+updateObjects :: ScreenSize -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
@@ -215,5 +215,6 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
   | otherwise = obj : updateObjects res dt lvlMap plr_pos objs
   where
     (MovingObject _ (pos_x, _) _ _ _ _) = obj
-    leftBoundary = plr_pos_x - (fromIntegral res_x)
-    rightBoundary = plr_pos_x + tileSize * 10-- (fromIntegral res_x)/4
+    leftBoundary = plr_pos_x - (fromIntegral res_x) / (2 / 3 * gameScale)
+    rightBoundary = plr_pos_x + (fromIntegral res_x) / gameScale
+    gameScale = getGameScale res lvlMap

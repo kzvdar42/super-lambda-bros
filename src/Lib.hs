@@ -58,6 +58,7 @@ data Game
     GameState    -- ^ State of the Game
 
 -- Objects
+type ScreenSize = (Int, Int)
 type Vector2 = (Float, Float)
 type Coord = (Integer, Integer)
 type Position = Vector2
@@ -261,6 +262,8 @@ mapCoordToPos :: Coord -> Position
 mapCoordToPos (x, y)
   = (fromIntegral x * tileSize, fromIntegral y * tileSize)
 
+-- ------------------------ General functions ------------------------ --
+
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` only if all body parts satisfy given expression.
 checkforAllParts :: (LevelMap -> Position -> Bool)
@@ -289,3 +292,11 @@ applyToParts funForFold base posFun lvl size (pos_x, pos_y)
   where
     (count_x, count_y) = mapPosToCoord size
     offset n = fromIntegral n * minObjSize
+
+-- | Returns the scale for this screen and level.
+getGameScale :: ScreenSize -> LevelMap -> Float
+getGameScale (_, res_y) lvlMap = gameScaleFactor * (fromIntegral res_y) / getMapHeight lvlMap
+
+-- | Based on tile count of stored map calculate map size
+getMapHeight :: LevelMap -> Float
+getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
