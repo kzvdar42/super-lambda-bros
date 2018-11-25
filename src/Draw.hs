@@ -14,13 +14,13 @@ getFloating (a, b) = (fromIntegral a, fromIntegral b)
 
 -- | Draw the game.
 drawGame :: Assets -> (Int, Int) -> Game -> Picture
-drawGame assets res game@(Game levels player state) =
+drawGame assets res game@(Game levels players state) =
   let
     gameScale = gameScaleFactor * (snd fres) / mapHeight
     textScale = textScaleFactor * gameScale
     lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
     -- Debug output
-    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = player
+    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = head players
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
     charSize = 150 * textScale
@@ -43,7 +43,7 @@ drawGame assets res game@(Game levels player state) =
     composed = scale gameScale gameScale (
       drawLvl assets (levelMap lvl)
       <> pictures (map (drawObject assets) (levelObjs lvl))
-      <> drawObject assets player)
+      <> pictures (map (drawObject assets) players))
     info = showScaledText (gameStateCoins state)
     fres = getFloating res
     mapHeight = getMapHeight game

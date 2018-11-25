@@ -38,6 +38,7 @@ data Level = Level
 
 -- | Types of possible player input
 data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
+  | W_BUTTON | A_BUTTON | D_BUTTON
   deriving (Eq, Ord, Show)
 
 -- | State of the game (HP levelNumber nextLevel).
@@ -49,8 +50,8 @@ data GameState = GameState
   , pressedKeys          :: S.Set Movement
   }
 
---   Game        Levels  Player       State
-data Game = Game [Level] MovingObject GameState
+--   Game        Levels  Players       State
+data Game = Game [Level] [MovingObject] GameState
 
 -- Objects
 type Vector2 = (Float, Float)
@@ -104,7 +105,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale.
 gameScaleFactor :: Float
-gameScaleFactor = 1
+gameScaleFactor = 1/2
 
 -- | Speed of animation.
 animationScale::Float
@@ -188,7 +189,8 @@ getInitSpeed Shell =       (-1 * tileSize, 0)
 initGame :: [Level] -> Game
 initGame levels = 
   Game levels 
-    (initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))) initState
+    ([initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))
+     ,initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))]) initState
 
 -- | Init state of the game.
 initState :: GameState
