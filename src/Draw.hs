@@ -2,8 +2,10 @@
 
 module Draw where
 
-import Data.Fixed (mod') -- TODO remove
-import qualified Data.Set as S -- TODO remove
+-- Start: Used in debug output
+import Data.Fixed (mod')
+import qualified Data.Set as S
+-- End: Used in debug output
 import Graphics.Gloss
 
 import Lib
@@ -72,6 +74,16 @@ drawLine assets tiles
   (zip (map (\y -> translate (y * tileSize) 0) [0..])
     (map (drawTile assets) (tiles)))
 
+-- | Draw object.
+drawObject :: Assets -> MovingObject -> Picture
+drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
+  = translate
+    (pos_x + (size_x - minObjSize) / 2)
+    (pos_y + (size_y - minObjSize) / 2)
+    (drawKind assets kind animC animD)
+  where
+    (size_x, size_y) = getSize kind
+
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
 drawTile assets Brick = getAssetFromList (envSprites assets) 0
@@ -88,32 +100,28 @@ drawTile assets PipeGreenRight = getAssetFromList (envSprites assets) 7
 drawTile assets RomboBlock = getAssetFromList (envSprites assets) 8
 drawTile assets Coin = getAssetFromList (envSprites assets) 9
 drawTile _ HiddenBlockLivesUp = blank
-drawTile _ Empty = blank--color (makeColorI 92 148 252 255) (rectangleSolid tileSize tileSize)
+drawTile _ Empty = blank
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Float -> Int -> Picture
-drawKind assets BigPlayer animC animD = getAssetFromList (marioSprites assets) 0
-drawKind assets SmallPlayer animC animD = drawSmallPlayer assets animC animD--text (show animD)--getAssetFromList (marioSprites assets) 0 --drawSmallPlayer assets animC animD
-drawKind assets Gumba animC animD = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
-drawKind assets Turtle animC animD = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
-drawKind assets Mushroom animC animD = getAssetFromList (enemySprites assets) 4
-drawKind assets Shell animC animD = getAssetFromList (enemySprites assets) 6
-drawKind assets Star animC animD = getAssetFromList (enemySprites assets) 5
-drawKind assets HpMushroom animC animD = getAssetFromList (enemySprites assets) 7
+drawKind assets BigPlayer _ _ = getAssetFromList (marioSprites assets) 0
+drawKind assets SmallPlayer animC animD = drawSmallPlayer (marioSprites assets) animC animD
+drawKind assets Gumba animC _ = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
+drawKind assets Turtle animC _ = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
+drawKind assets Mushroom _ _ = getAssetFromList (enemySprites assets) 4
+drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
+drawKind assets Star _ _ = getAssetFromList (enemySprites assets) 5
+drawKind assets HpMushroom _ _ = getAssetFromList (enemySprites assets) 7
 
--- drawKind assets Star = getAssetFromList (enemySprites assets) 3
--- drawKind assets Shell = getAssetFromList (enemySprites assets) 4
--- drawKind assets HpMushroom = getAssetFromList (enemySprites assets) 5
 
-drawSmallPlayer::Assets->Float->Int->Picture
-drawSmallPlayer assets animC 1 = getAssetFromList (marioSprites assets) (2 + ((round animC) `mod` 4))
-drawSmallPlayer assets animC 0 = getAssetFromList (marioSprites assets) 6
-drawSmallPlayer assets animC 5 = getAssetFromList (marioSprites assets) 13
-drawSmallPlayer assets animC 6 = getAssetFromList (marioSprites assets) (9 + ((round animC) `mod` 4))
-drawSmallPlayer assets animC 2 = getAssetFromList (marioSprites assets) 0
-drawSmallPlayer assets animC 7 = getAssetFromList (marioSprites assets) 7
-drawSmallPlayer assets _ _ = getAssetFromList (marioSprites assets) 0
-
+drawSmallPlayer :: [Picture] -> Float -> Int -> Picture
+drawSmallPlayer mSprites animC 1 = getAssetFromList mSprites (2 + ((round animC) `mod` 4))
+drawSmallPlayer mSprites _ 0 = getAssetFromList mSprites 6
+drawSmallPlayer mSprites _ 5 = getAssetFromList mSprites 13
+drawSmallPlayer mSprites animC 6 = getAssetFromList mSprites (9 + ((round animC) `mod` 4))
+drawSmallPlayer mSprites _ 2 = getAssetFromList mSprites 0
+drawSmallPlayer mSprites _ 7 = getAssetFromList mSprites 7
+drawSmallPlayer mSprites _ _ = getAssetFromList mSprites 0
 
 -- | Safely get the asset from the provided list.
 -- If the asset is not found, return a placaholder picture.
@@ -122,16 +130,6 @@ getAssetFromList assets num =
   case takeElemFromList assets num of
     Just p -> p
     Nothing -> scale tileSize tileSize (color black (rectangleSolid 1 1))
-
--- | Draw object.
-drawObject :: Assets -> MovingObject -> Picture
-drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
-  = translate
-    (pos_x + (size_x - minObjSize) / 2)
-    (pos_y + (size_y - minObjSize) / 2)
-    (drawKind assets kind animC animD)
-  where
-    (size_x, size_y) = getSize kind
 
 -- | Based on tile count of stored map calculate map size
 getMapHeight :: Game -> Float
