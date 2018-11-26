@@ -57,14 +57,11 @@ performCollisions playerNum (c:cs) game =
       { gamePlayers =
         updateElemInList
         (gamePlayers game)
-        (curPlayer 
-          { playerHp = (playerHp curPlayer) - 1
-          , playerIsDead = True
-          }
-        )
+        (createPlayer (levelInitPoint initlvl) ((playerHp curPlayer) - 1) True)
         (fromIntegral playerNum)
       }
   where
+    initlvl = (gameLevels game) !! (gameLvlNum game)
     curPlayer = (gamePlayers game) !! playerNum
     curlvl = gameCurLevel game
     objects = levelObjs curlvl
@@ -78,7 +75,7 @@ resetLevel :: Game -> Game
 resetLevel game = game
   { gameCurLevel = initlvl
   , gamePlayers = map
-      (\p -> createPlayer (levelInitPoint initlvl) (playerHp p) False)
+      (\p -> createPlayer (levelInitPoint initlvl) (playerHp p) (playerHp p <= 0))
       (gamePlayers game)
   }
   where
