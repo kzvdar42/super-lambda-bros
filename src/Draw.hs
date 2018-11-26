@@ -12,13 +12,14 @@ import Lib
 
 -- | Draw the game.
 drawGame :: Assets -> ScreenSize -> Game -> Picture
-drawGame assets res (Game _ curlvl player state) =
+drawGame assets res game =
   let
     gameScale = getGameScale res lvlMap
     textScale = textScaleFactor * gameScale
+    curlvl = (gameCurLevel game)
     lvlMap = levelMap curlvl
     -- Debug output
-    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = player
+    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (gamePlayer game)
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
     charSize = 150 * textScale
@@ -27,7 +28,7 @@ drawGame assets res (Game _ curlvl player state) =
     showScaledText str = scale textScale textScale (text (show str))
     inputEvents = pictures $ map (\(t, p) -> t p)
       (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
-        (map (showScaledText) (S.elems (pressedKeys state)))
+        (map (showScaledText) (S.elems (pressedKeys game)))
       )
     debug = translate 0 (-gameScale * tileSize - charSize)
       (
@@ -41,8 +42,8 @@ drawGame assets res (Game _ curlvl player state) =
     composed = scale gameScale gameScale (
       drawLvl assets lvlMap
       <> pictures (map (drawObject assets) (levelObjs curlvl))
-      <> drawObject assets player)
-    info = showScaledText (gameStateCoins state)
+      <> drawObject assets (playerObj (gamePlayer game)))
+    info = showScaledText (gameCoins game)
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
     composedRelative = alignWorldToX ((*) gameScale $ fst pos)

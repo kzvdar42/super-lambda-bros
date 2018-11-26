@@ -36,26 +36,26 @@ data Level = Level
   , levelInitPoint :: Coord
   }
 
--- | Types of possible player input
+-- | Types of possible player input.
 data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
   deriving (Eq, Ord, Show)
 
--- | State of the game.
-data GameState = GameState
-  { gameStateHp          :: Int            -- ^ Number of player lifes
-  , gameStateCoins       :: Int            -- ^ Number of coins
-  , gameStateLvlNum      :: Int            -- ^ Current level number
-  , gameStateNextLvlNum  :: Maybe Int      -- ^ Next level number
-  , pressedKeys          :: S.Set Movement -- ^ List of current pressed keys
+-- | Player state.
+data Player = Player
+  { playerObj :: MovingObject -- ^ MovingObject of a player
+  , playerHp  :: Int          -- ^ Player Hp
   }
 
 -- | Current state of the game.
-data Game
-  = Game
-    [Level]      -- ^ Levels
-    Level        -- ^ Current level
-    MovingObject -- ^ Player
-    GameState    -- ^ State of the Game
+data Game = Game
+    { gameLevels     :: [Level]        -- ^ Levels
+    , gameCurLevel   :: Level          -- ^ Current level
+    , gamePlayer     :: Player         -- ^ Player
+    , gameCoins      :: Int            -- ^ Number of coins
+    , gameLvlNum     :: Int            -- ^ Current level number
+    , gameNextLvlNum :: Maybe Int      -- ^ Next level number
+    , pressedKeys    :: S.Set Movement -- ^ List of current pressed keys
+    }
 
 -- Objects
 type ScreenSize = (Int, Int)
@@ -196,26 +196,27 @@ getInitSpeed Flagpole =    (0, 0)
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels =
-  Game levels currLevel (initPlayer (levelInitPoint currLevel)) initState
+initGame levels = Game 
+    { gameLevels = levels
+    , gameCurLevel = currLevel
+    , gamePlayer = (initPlayer (levelInitPoint currLevel) 3)
+    , gameCoins = 0
+    , gameLvlNum = lvlNum
+    , gameNextLvlNum = Nothing
+    , pressedKeys = S.empty
+    }
   where
-    currLevel = (levels !! gameStateLvlNum initState)
-
--- | Init state of the game.
-initState :: GameState
-initState =  GameState
-  { gameStateHp = 3
-  , gameStateCoins = 0
-  , gameStateLvlNum = 0
-  , gameStateNextLvlNum = Nothing
-  , pressedKeys = S.empty
-  }
+    lvlNum = 0
+    currLevel = (levels !! lvlNum)
 
 -- | Initial state of the player.
-initPlayer :: Coord -> MovingObject
-initPlayer (coord_x, coord_y)
-  = MovingObject SmallPlayer
-    (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize) (0.0, 0.0) (0.0, 0.0) 0 5
+initPlayer :: Coord -> Int -> Player
+initPlayer (coord_x, coord_y) hp = Player
+  { playerObj = MovingObject SmallPlayer pos (0.0, 0.0) (0.0, 0.0) 0 5
+  , playerHp = hp
+  }
+  where
+    pos = (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize)
 
 -- ------------------------ Work with map ------------------------ --
 
