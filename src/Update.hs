@@ -10,16 +10,16 @@ import Lib
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Int -> Game -> Game
-checkCollision playerNum game@(Game lvls players state) =
-  case takeElemFromMatrix (levelMap lvl) (x_close, y) of
-    Nothing -> case takeElemFromMatrix (levelMap lvl) (x_far, y) of
-      Nothing -> game
+checkCollision playerNum game =
+  case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
+    Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
+      Nothing -> if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
       Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
     Just tile -> performCollisions playerNum (map (\c -> (c, (x_close, y))) (typeOfCollision tile)) game
   where
-    lvl = lvls !! gameStateLvlNum state -- TODO: do this is a safe way.
-    (MovingObject kind (pos_x, pos_y) _ _ _ _) = players !! playerNum
-    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + (tileSize - minObjSize) - thresh)  -- TODO: change when will generalize minObjSize
+    curlvl = gameCurLevel game
+    (MovingObject kind (pos_x, pos_y) _ _ _ _) = playerObj ((gamePlayers game) !! playerNum)
+    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (x_close, x_far) =
       if pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x
@@ -30,41 +30,59 @@ checkCollision playerNum game@(Game lvls players state) =
 -- Right now the implementation is fixed to the position of the player.
 performCollisions :: Int -> [(CollisionType, Coord)] -> Game -> Game
 performCollisions _ [] game = game
-performCollisions playerNum (c:cs) (Game lvls players state) =
+performCollisions playerNum (c:cs) game =
   performCollisions playerNum cs $ case c of
-    (Delete, tile_pos) ->
-      (Game (updateLvlMap lvls lvlNum tile_pos Empty) players state)
+    (Delete, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
-        newlvls = updateElemInList lvls newlvl (fromIntegral lvlNum)
-        newlvl = Level
-          { levelMap = levelMap lvl
-          , levelInitPoint = levelInitPoint lvl
+        updlvl = Level
+          { levelMap = levelMap curlvl
+          , levelInitPoint = levelInitPoint curlvl
           , levelObjs = ((MovingObject objKind
               (mapCoordToPos (tile_x + off_x, tile_y + off_y))
               (1.0 * tileSize, 0.0) (0.0, 0.0) 0 0) : objects)
           }
       in
-      (Game newlvls players state)
+      game {gameCurLevel = updlvl}
     (Change tile, tile_pos) ->
-      (Game (updateLvlMap lvls lvlNum tile_pos tile) players state)
+      game {gameCurLevel = updtile tile_pos tile}
     (Bounce, _) ->
-      Game lvls (updateElemInList players (MovingObject kind pos
-      (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD) (fromIntegral playerNum)) state
-    (CollectCoin, _) -> Game lvls players (incrementCoins state)
+      let
+        plr = (gamePlayers game) !! playerNum
+        upd_player = plr {playerObj =
+          (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)}
+      in
+      game {gamePlayers = (updateElemInList (gamePlayers game) upd_player (fromIntegral playerNum))}
+    (CollectCoin, _) -> incrementCoins game
+    (Die, _) -> game -- TODO: Decrease the Hp.
+      { gameCurLevel = initlvl
+      , gamePlayers =
+        [ (initPlayer (levelInitPoint initlvl) 3)
+        , (initPlayer (levelInitPoint initlvl) 3)
+        ]
+        -- initPlayer (levelInitPoint initlvl) (playerHp (gamePlayer game) - 1)
+      }
   where
-    lvl = lvls !! lvlNum  -- TODO: Do this is a safe way
-    objects = levelObjs lvl
-    (MovingObject kind pos (vel_x, _) (accel_x, _) animC animD) = players !! playerNum
-    lvlNum = gameStateLvlNum state
-    incrementCoins (GameState hp coins l n_lvl ks)
-      | coins < 100 = GameState hp       (coins + 1)  l n_lvl ks
-      | otherwise   = GameState (hp + 1) (coins - 99) l n_lvl ks
+    curlvl = gameCurLevel game
+    objects = levelObjs curlvl
+    initlvl = (gameLevels game) !! (gameLvlNum game)
+    (MovingObject kind pos (vel_x, _) (accel_x, _) animC animD) =
+      playerObj ((gamePlayers game) !! playerNum)
+    updtile t_pos t =
+      curlvl {levelMap = updateElemInMatrix (levelMap curlvl) t_pos t}
 
--- -- | Apply gravity to the `MovingObject`.
--- applyGravity :: Float -> MovingObject -> MovingObject
--- applyGravity dt (MovingObject kind pos vel (accel_x, accel_y))
---   = MovingObject kind pos vel (accel_x, accel_y - g * dt)
+-- | Increments the number of coins.
+incrementCoins :: Game -> Game
+incrementCoins game
+  | coins < 99 = game { gameCoins = coins + 1 }
+  | otherwise   = game { gamePlayers = upd_players
+                       , gameCoins = coins - 99 }
+  where 
+    coins = gameCoins game
+    upd_players =
+      [ ((gamePlayers game) !! 0) {playerHp = playerHp ((gamePlayers game) !! 0) + 1}
+      , ((gamePlayers game) !! 1) {playerHp = playerHp ((gamePlayers game) !! 1) + 1}
+      ]
 
 -- | Apply gravity to the `MovingObject`.
 applyGravityAsVel :: Float -> MovingObject -> MovingObject
@@ -79,32 +97,35 @@ applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
     allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
     takeFriction level (tile_x, tile_y) =
       case takeElemFromMatrix level (mapPosToCoord (tile_x, tile_y - thresh)) of
-        Nothing -> 0
+        Nothing -> tileFrictionRate Empty
         Just tile -> tileFrictionRate tile
 
 -- | Check if the object can jump from this position.
 canJump :: LevelMap -> Position -> Bool
-canJump lvl (pos_x, pos_y) =
+canJump lvlMap (pos_x, pos_y) =
   case (left_bot, right_bot) of
     (Just l_tile, Just r_tile) -> not (canPass l_tile && canPass r_tile)
     (Just l_tile, _) -> not $ canPass l_tile
     (_, Just r_tile) -> not $ canPass r_tile
     (Nothing, Nothing) -> False
   where
-    left_bot = takeElemFromMatrix lvl (x, y)
-    right_bot = takeElemFromMatrix lvl (x_r, y)
-    (x, y) = mapPosToCoord (pos_x, pos_y - thresh)
-    (x_r, _) = mapPosToCoord (pos_x + minObjSize, 0)
+    left_bot = takeElemFromMatrix lvlMap (x, y)
+    right_bot = takeElemFromMatrix lvlMap (x_r, y)
+    (x, y) = mapPosToCoord (pos_x + thresh, pos_y - thresh)
+    (x_r, _) = mapPosToCoord (pos_x + minObjSize - thresh, 0)
+
+-- | CanJump for MovingObjects.
+canObjJump :: LevelMap -> Size -> Position -> Bool
+canObjJump lvlMap (size_x, _) (pos_x, pos_y) =
+  checkForAnyPart canJump lvlMap (size_x, minObjSize) (pos_x, pos_y)
 
 -- | Jump to the stars!
 tryJump :: LevelMap -> MovingObject -> Position -> MovingObject
-tryJump lvl player@(MovingObject kind pos@(pos_x, pos_y) (vel_x, _) accel animC animD) (off_x, off_y)
-  | checkForAnyPart canJump lvl (size_x, 1) pos && not inAir
+tryJump lvlMap player@(MovingObject kind pos (vel_x, _) accel animC animD) (off_x, off_y)
+  | canObjJump lvlMap (getSize kind) pos
     = MovingObject kind pos (vel_x + off_x, off_y) accel animC animD
   | otherwise = player
-  where
-    inAir = canMove lvl (pos_x + thresh, pos_y - thresh)
-    (size_x, _) = (getSize kind)
+    
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
@@ -161,25 +182,9 @@ tryMove dt level object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
 
--- | Update the animation state of object.
-updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
-updateAnimation dt lvl (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
-  | isPlayer kind =
-    MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
-  | otherwise =
-    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
-  where
-    updAnimD
-      | not (canJump lvl pos) && vel_x > 0.6 * tileSize = 7
-      | not (canJump lvl pos) && vel_x < -0.6 * tileSize = 2
-      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
-      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
-      | not (canJump lvl pos) = if animD >= 5 then 7 else 2
-      | otherwise = if animD >= 5 then 5 else 0
-
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
-canMove lvl pos@(pos_x, pos_y) =
+canMove lvl (pos_x, pos_y) =
   foldr ((&&) . canM) True [left_bot, left_top, right_bot, right_top]
   where
     canM maybeT = case maybeT of
@@ -189,39 +194,59 @@ canMove lvl pos@(pos_x, pos_y) =
     left_top = takeElemFromMatrix lvl (x, y_r)
     right_bot = takeElemFromMatrix lvl (x_r, y)
     right_top = takeElemFromMatrix lvl (x_r, y_r)
-    (x, y) = mapPosToCoord pos
-    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize, pos_y + minObjSize)
+    (x, y) = mapPosToCoord (pos_x + thresh, pos_y)
+    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize - thresh, pos_y + minObjSize)
+
+-- | Update the animation state of object.
+updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
+updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
+  | isPlayer kind =
+    MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
+  | otherwise =
+    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
+  where
+    canJ = canObjJump lvlMap (getSize kind) pos
+    updAnimD
+      | not canJ && vel_x > 0.6 * tileSize = 7
+      | not canJ && vel_x < -0.6 * tileSize = 2
+      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
+      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
+      | not canJ = if animD >= 5 then 7 else 2
+      | otherwise = if animD >= 5 then 5 else 0
 
 -- | Physics of the game.
-updateGame :: (Int, Int) -> Float -> Game -> Game
-updateGame res dt (Game lvls players state) =
-  case gameStateNextLvlNum state of
-    Nothing -> checkCollision 1 $ checkCollision 0 (Game updlvls upd_player state)
-    Just nextLevel -> Game updlvls upd_player
-      (state {gameStateLvlNum = nextLevel, gameStateNextLvlNum = Nothing})
+updateGame :: ScreenSize -> Float -> Game -> Game
+updateGame res dt game =
+  case gameNextLvlNum game of
+    Nothing ->
+      checkCollision 1 $ checkCollision 0 game { gameCurLevel = updlvl, gamePlayers = upd_players }
+    Just nextLevel -> game -- TODO:  move to next level.
   where
-    lvlNum = gameStateLvlNum state
-    lvl = lvls !! lvlNum -- TODO: make this is a safe way.
-    lvlMap = levelMap lvl
-    updlvls = updateElemInList lvls (lvl { levelObjs = upd_objects }) (fromIntegral lvlNum)
-    (MovingObject _ plr_pos _ _ _ _) = head players
-    upd_player =
-      [ ((updatePlayer dt lvlMap
-      . performActions lvlMap (S.toList (pressedKeys state))
-      ) (head players))
-      , ((updatePlayer dt lvlMap
-      . performActions2 lvlMap (S.toList (pressedKeys state))
-      ) (players !! 1))]
-    upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs lvl)
+    curlvl = gameCurLevel game
+    lvlMap = levelMap curlvl
+    updlvl = curlvl { levelObjs = upd_objects }
+    (MovingObject _ plr_pos _ _ _ _) = playerObj (head players)
+    players = gamePlayers game
+    upd_players =
+      [ (head players) {playerObj = ((updatePlayer dt lvlMap
+      . performActions lvlMap (S.toList (pressedKeys game))
+      ) (playerObj (head players)))}
+      , (players !! 1) 
+        {playerObj =
+          (updatePlayer dt lvlMap
+          . performActions2 lvlMap (S.toList (pressedKeys game))) (playerObj (players !! 1))
+        }
+      ]
+    upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs curlvl)
 
 -- | Update player state.
 updatePlayer :: Float -> LevelMap -> MovingObject -> MovingObject
-updatePlayer dt lvlMap = 
+updatePlayer dt lvlMap =
   updateAnimation dt lvlMap . tryMove dt lvlMap . applyFriction lvlMap . applyGravityAsVel dt
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
-updateObjects :: (Int, Int) -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
+updateObjects :: ScreenSize -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
@@ -230,5 +255,6 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
   | otherwise = obj : updateObjects res dt lvlMap plr_pos objs
   where
     (MovingObject _ (pos_x, _) _ _ _ _) = obj
-    leftBoundary = plr_pos_x - (fromIntegral res_x)
-    rightBoundary = plr_pos_x + (fromIntegral res_x)/2
+    leftBoundary = plr_pos_x - (fromIntegral res_x) / (2 / 3 * gameScale)
+    rightBoundary = plr_pos_x + (fromIntegral res_x) / gameScale
+    gameScale = getGameScale res lvlMap

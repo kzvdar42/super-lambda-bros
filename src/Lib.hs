@@ -36,24 +36,30 @@ data Level = Level
   , levelInitPoint :: Coord
   }
 
--- | Types of possible player input
+-- | Types of possible player input.
 data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
   | W_BUTTON | A_BUTTON | D_BUTTON
   deriving (Eq, Ord, Show)
 
--- | State of the game (HP levelNumber nextLevel).
-data GameState = GameState
-  { gameStateHp          :: Int
-  , gameStateCoins       :: Int
-  , gameStateLvlNum      :: Int
-  , gameStateNextLvlNum  :: Maybe Int
-  , pressedKeys          :: S.Set Movement
+-- | Player state.
+data Player = Player
+  { playerObj :: MovingObject -- ^ MovingObject of a player
+  , playerHp  :: Int          -- ^ Player Hp
   }
 
---   Game        Levels  Players       State
-data Game = Game [Level] [MovingObject] GameState
+-- | Current state of the game.
+data Game = Game
+    { gameLevels     :: [Level]        -- ^ Levels
+    , gameCurLevel   :: Level          -- ^ Current level
+    , gamePlayers    :: [Player]       -- ^ Player
+    , gameCoins      :: Int            -- ^ Number of coins
+    , gameLvlNum     :: Int            -- ^ Current level number
+    , gameNextLvlNum :: Maybe Int      -- ^ Next level number
+    , pressedKeys    :: S.Set Movement -- ^ List of current pressed keys
+    }
 
 -- Objects
+type ScreenSize = (Int, Int)
 type Vector2 = (Float, Float)
 type Coord = (Integer, Integer)
 type Position = Vector2
@@ -77,9 +83,10 @@ data Kind
   | HpMushroom
   | Star
   | Shell
+  | Flagpole
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin
+data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -97,7 +104,7 @@ tileSize = 16
 -- | Size of the minimum MovingObject.
 -- Size of the others should be a scalar multiplication of this.
 minObjSize :: Float
-minObjSize = 0.8 * tileSize
+minObjSize = 0.5 * tileSize
 
 -- | Size of the text.
 textScaleFactor :: Float
@@ -124,7 +131,7 @@ step = (0.3 * tileSize, 0.6 * g)
 -- | Thresh of collision distance.
 -- If collisions doesn't work play with it.
 thresh :: Float
-thresh = 0.05 * tileSize
+thresh = 0.1 * tileSize
 
 -- | Is this object a player?
 isPlayer :: Kind -> Bool
@@ -144,8 +151,8 @@ getAnimDivisor _ = 1000
 
 -- | Friction rate of the tiles.
 tileFrictionRate :: Tile -> Float
-tileFrictionRate Empty = 0.04
-tileFrictionRate _ = 0.03
+tileFrictionRate Empty = 0.02
+tileFrictionRate _ = 0.015
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
@@ -165,14 +172,15 @@ typeOfCollision _ = [Bounce]
 
 -- | Get size of `MovingObject of given kind.
 getSize :: Kind -> Size
-getSize BigPlayer =   (minObjSize, minObjSize * 2)
-getSize SmallPlayer = (minObjSize, minObjSize)
-getSize Gumba =       (minObjSize, minObjSize)
-getSize Turtle =      (minObjSize, minObjSize * 2)
-getSize Mushroom =    (minObjSize, minObjSize)
-getSize HpMushroom =  (minObjSize, minObjSize)
-getSize Star =        (minObjSize, minObjSize)
-getSize Shell =       (minObjSize, minObjSize)
+getSize BigPlayer =   (minObjSize * 2, minObjSize * 4)
+getSize SmallPlayer = (minObjSize * 2, minObjSize * 2)
+getSize Gumba =       (minObjSize * 2, minObjSize * 2)
+getSize Turtle =      (minObjSize * 2, minObjSize * 3)
+getSize Mushroom =    (minObjSize * 2, minObjSize * 2)
+getSize HpMushroom =  (minObjSize * 2, minObjSize * 2)
+getSize Star =        (minObjSize * 2, minObjSize * 2)
+getSize Shell =       (minObjSize * 2, minObjSize * 2)
+getSize Flagpole =    (1 * tileSize, 10 * tileSize)
 
 getInitSpeed :: Kind -> Vector2
 getInitSpeed BigPlayer =   (0, 0)
@@ -183,31 +191,36 @@ getInitSpeed Mushroom =    (-1 * tileSize, 0)
 getInitSpeed HpMushroom =  (-1 * tileSize, 0)
 getInitSpeed Star =        (-1 * tileSize, g)
 getInitSpeed Shell =       (-1 * tileSize, 0)
+getInitSpeed Flagpole =    (0, 0)
 
 -- ------------------------ Game initialization ------------------------ --
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels = 
-  Game levels 
-    ([initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))
-     ,initPlayer (levelInitPoint (levels !! gameStateLvlNum initState))]) initState
-
--- | Init state of the game.
-initState :: GameState
-initState =  GameState
-  { gameStateHp = 3
-  , gameStateCoins = 0
-  , gameStateLvlNum = 0
-  , gameStateNextLvlNum = Nothing
-  , pressedKeys = S.empty
-  }
+initGame levels = Game 
+    { gameLevels = levels
+    , gameCurLevel = currLevel
+    , gamePlayers = 
+      [ (initPlayer (levelInitPoint currLevel) 3)
+      , (initPlayer (levelInitPoint currLevel) 3)
+      ]
+    , gameCoins = 0
+    , gameLvlNum = lvlNum
+    , gameNextLvlNum = Nothing
+    , pressedKeys = S.empty
+    }
+  where
+    lvlNum = 0
+    currLevel = (levels !! lvlNum)
 
 -- | Initial state of the player.
-initPlayer :: Coord -> MovingObject
-initPlayer (coord_x, coord_y)
-  = MovingObject SmallPlayer
-    (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize) (0.0, 0.0) (0.0, 0.0) 0 5
+initPlayer :: Coord -> Int -> Player
+initPlayer (coord_x, coord_y) hp = Player
+  { playerObj = MovingObject SmallPlayer pos (0.0, 0.0) (0.0, 0.0) 0 5
+  , playerHp = hp
+  }
+  where
+    pos = (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize)
 
 -- ------------------------ Work with map ------------------------ --
 
@@ -227,16 +240,16 @@ takeElemFromList (_:ls) n = takeElemFromList ls (n - 1)
 updateLvlMap :: [Level] -> Int -> Coord -> Tile -> [Level]
 updateLvlMap [] _ _ _ = []
 updateLvlMap (l:ls) 0 pos tile
-  = l { levelMap = updateElemInmatrix (levelMap l) pos tile } : ls
+  = l { levelMap = updateElemInMatrix (levelMap l) pos tile } : ls
 updateLvlMap (l:ls) n pos tile = l : updateLvlMap ls (n - 1) pos tile
 
 -- | Update the tile in the level.
-updateElemInmatrix :: [[a]] -> Coord -> a -> [[a]]
-updateElemInmatrix [] _ _ = []
-updateElemInmatrix (l:ls) (pos_x, 0) tile
+updateElemInMatrix :: [[a]] -> Coord -> a -> [[a]]
+updateElemInMatrix [] _ _ = []
+updateElemInMatrix (l:ls) (pos_x, 0) tile
   = updateElemInList l tile pos_x : ls
-updateElemInmatrix (l:ls) (pos_x, pos_y) tile
-  = l : updateElemInmatrix ls (pos_x, pos_y - 1) tile
+updateElemInMatrix (l:ls) (pos_x, pos_y) tile
+  = l : updateElemInMatrix ls (pos_x, pos_y - 1) tile
 
 -- | Update element in list.
 updateElemInList :: [a] -> a -> Integer -> [a]
@@ -253,6 +266,8 @@ mapPosToCoord (x, y) = (div' x tileSize, div' y tileSize)
 mapCoordToPos :: Coord -> Position
 mapCoordToPos (x, y)
   = (fromIntegral x * tileSize, fromIntegral y * tileSize)
+
+-- ------------------------ General functions ------------------------ --
 
 -- | Checks the given bool exression for all parts of given body size.
 -- Returns `True` only if all body parts satisfy given expression.
@@ -275,10 +290,18 @@ applyToParts
   -> Size                        -- ^ Size of the body
   -> Position                    -- ^ Placement of the body on the map
   -> b
-applyToParts funForFold base posFun lvl size (pos_x, pos_y)
+applyToParts funForFold base posFun lvl (size_x, size_y) (pos_x, pos_y)
   = foldr funForFold base
   (map (\(x, y) -> posFun lvl (pos_x + offset x, pos_y + offset y))
-    [(a, b) | a <- [0..count_x], b <- [0..count_y]])
+    [(a, b) | a <- [0..count_x - 1], b <- [0..count_y - 1]])
   where
-    (count_x, count_y) = mapPosToCoord size
+    (count_x, count_y) = (div' size_x minObjSize, div' size_y minObjSize)
     offset n = fromIntegral n * minObjSize
+
+-- | Returns the scale for this screen and level.
+getGameScale :: ScreenSize -> LevelMap -> Float
+getGameScale (_, res_y) lvlMap = gameScaleFactor * (fromIntegral res_y) / getMapHeight lvlMap
+
+-- | Based on tile count of stored map calculate map size
+getMapHeight :: LevelMap -> Float
+getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize

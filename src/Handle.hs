@@ -18,7 +18,7 @@ handleGame (G.EventKey (G.SpecialKey G.KeyRight) keyState _ _) = handleKeyPress 
 handleGame _ = id
 
 handleKeyPress :: G.KeyState -> Movement -> Game -> Game
-handleKeyPress keyState mov (Game lvls player state) =
+handleKeyPress keyState mov game =
   case keyState of
-    G.Up -> Game lvls player (state {pressedKeys = (S.delete mov (pressedKeys state))})
-    G.Down -> Game lvls player (state {pressedKeys = (S.insert mov (pressedKeys state))})
+    G.Up   -> game {pressedKeys = S.delete mov (pressedKeys game)}
+    G.Down -> game {pressedKeys = S.insert mov (pressedKeys game)}

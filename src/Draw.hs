@@ -10,19 +10,16 @@ import Graphics.Gloss
 
 import Lib
 
--- | Convert a pair of integers into a pair of floats.
-getFloating :: (Int, Int) -> (Float, Float)
-getFloating (a, b) = (fromIntegral a, fromIntegral b)
-
 -- | Draw the game.
-drawGame :: Assets -> (Int, Int) -> Game -> Picture
-drawGame assets res game@(Game levels players state) =
+drawGame :: Assets -> ScreenSize -> Game -> Picture
+drawGame assets res game =
   let
-    gameScale = gameScaleFactor * (snd fres) / mapHeight
+    gameScale = getGameScale res lvlMap
     textScale = textScaleFactor * gameScale
-    lvl = levels !! (gameStateLvlNum state) -- TODO: do this in a safe way
+    curlvl = (gameCurLevel game)
+    lvlMap = levelMap curlvl
     -- Debug output
-    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = head players
+    (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (head (gamePlayers game))
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
     charSize = 150 * textScale
@@ -31,7 +28,7 @@ drawGame assets res game@(Game levels players state) =
     showScaledText str = scale textScale textScale (text (show str))
     inputEvents = pictures $ map (\(t, p) -> t p)
       (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
-        (map (showScaledText) (S.elems (pressedKeys state)))
+        (map (showScaledText) (S.elems (pressedKeys game)))
       )
     debug = translate 0 (-gameScale * tileSize - charSize)
       (
@@ -43,19 +40,19 @@ drawGame assets res game@(Game levels players state) =
         <> translate 0  (-coordOffset) inputEvents
       )
     composed = scale gameScale gameScale (
-      drawLvl assets (levelMap lvl)
-      <> pictures (map (drawObject assets) (levelObjs lvl))
-      <> pictures (map (drawObject assets) players))
-    info = showScaledText (gameStateCoins state)
-    fres = getFloating res
-    mapHeight = getMapHeight game
+      drawLvl assets lvlMap
+      <> pictures (map (drawObject assets) (levelObjs curlvl))
+      <> pictures (map (drawObject assets . playerObj) (gamePlayers game)))
+    info = showScaledText (gameCoins game)
+    fres = (fromIntegral (fst res), fromIntegral (snd res))
+    mapHeight = getMapHeight lvlMap
     composedRelative = alignWorldToX ((*) gameScale $ fst pos)
-      (getScreenOffset fres game gameScale) $ centerPictureY mapHeight gameScale composed
+      (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
     composedRelative
     <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
       (centerPictureY mapHeight gameScale debug)
-    <> translate ((fst fres - coordOffset) / 2) 
+    <> translate ((fst fres - coordOffset) / 2)
       ((snd fres - coordOffset) / 2) info
 
 -- | Draw the level.
@@ -78,8 +75,8 @@ drawLine assets tiles
 drawObject :: Assets -> MovingObject -> Picture
 drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
   = translate
-    (pos_x + (size_x - minObjSize) / 2)
-    (pos_y + (size_y - minObjSize) / 2)
+    (pos_x + (size_x - tileSize) / 2)
+    (pos_y + (size_y - tileSize) / 2)
     (drawKind assets kind animC animD)
   where
     (size_x, size_y) = getSize kind
@@ -109,9 +106,10 @@ drawKind assets SmallPlayer animC animD = drawSmallPlayer (marioSprites assets) 
 drawKind assets Gumba animC _ = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
 drawKind assets Turtle animC _ = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
 drawKind assets Mushroom _ _ = getAssetFromList (enemySprites assets) 4
-drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
 drawKind assets Star _ _ = getAssetFromList (enemySprites assets) 5
+drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
 drawKind assets HpMushroom _ _ = getAssetFromList (enemySprites assets) 7
+drawKind assets Flagpole _ _ = getAssetFromList (enemySprites assets) 8
 
 
 drawSmallPlayer :: [Picture] -> Float -> Int -> Picture
@@ -131,12 +129,6 @@ getAssetFromList assets num =
     Just p -> p
     Nothing -> scale tileSize tileSize (color black (rectangleSolid 1 1))
 
--- | Based on tile count of stored map calculate map size
-getMapHeight :: Game -> Float
-getMapHeight (Game lvls _ state) = len * tileSize
-  where
-    len = fromIntegral (length (levelMap (lvls !! gameStateLvlNum state))) -- TODO: do this safe
-
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
 centerPictureY height gameScale pic = translate 0 (gameScale * (-height + tileSize) / 2) pic
@@ -149,10 +141,9 @@ alignWorldToX x (offsetL, offsetR)
   | otherwise = translate (-x) 0
 
 -- | Calculate offsets to limit map drawing on sides
-getScreenOffset :: (Float, Float) -> Game -> Float -> Position
-getScreenOffset (width, _) (Game levels _ state) gameScale
+getScreenOffset :: (Float, Float) -> LevelMap -> Float -> Position
+getScreenOffset (width, _) lvlMap gameScale
   = (offset, size - offset - tileSize * gameScale)
   where
     offset = (width - tileSize * gameScale) / 2
     size = gameScale * tileSize * (fromIntegral $ length (lvlMap !! 0))
-    lvlMap = levelMap (levels !! gameStateLvlNum state)
