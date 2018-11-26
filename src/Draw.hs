@@ -39,14 +39,15 @@ drawGame assets res game =
           (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
         <> translate 0  (-coordOffset) inputEvents
       )
+    alivePlayers = filter (\p -> not (playerIsDead p)) (gamePlayers game)
     composed = scale gameScale gameScale (
       drawLvl assets lvlMap
       <> pictures (map (drawObject assets) (levelObjs curlvl))
-      <> pictures (map (drawObject assets . playerObj) (gamePlayers game)))
+      <> pictures (map (drawObject assets . playerObj) alivePlayers))
     info = showScaledText (gameCoins game)
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
-    composedRelative = alignWorldToX ((*) gameScale $ fst pos)
+    composedRelative = alignWorldToX ((*) gameScale $ fst (centerOfScreen alivePlayers))
       (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
     composedRelative

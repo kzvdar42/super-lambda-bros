@@ -40,7 +40,7 @@ performCollisions playerNum (c:cs) game =
           , levelInitPoint = levelInitPoint curlvl
           , levelObjs = ((MovingObject objKind
               (mapCoordToPos (tile_x + off_x, tile_y + off_y))
-              (1.0 * tileSize, 0.0) (0.0, 0.0) 0 0) : objects)
+              (1 * tileSize, 0) (0, 0) 0 0) : objects)
           }
       in
       game {gameCurLevel = updlvl}
@@ -48,28 +48,41 @@ performCollisions playerNum (c:cs) game =
       game {gameCurLevel = updtile tile_pos tile}
     (Bounce, _) ->
       let
-        plr = (gamePlayers game) !! playerNum
-        upd_player = plr {playerObj =
+        upd_player = curPlayer {playerObj =
           (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)}
       in
       game {gamePlayers = (updateElemInList (gamePlayers game) upd_player (fromIntegral playerNum))}
     (CollectCoin, _) -> incrementCoins game
-    (Die, _) -> game -- TODO: Decrease the Hp.
-      { gameCurLevel = initlvl
-      , gamePlayers =
-        [ (initPlayer (levelInitPoint initlvl) 3)
-        , (initPlayer (levelInitPoint initlvl) 3)
-        ]
-        -- initPlayer (levelInitPoint initlvl) (playerHp (gamePlayer game) - 1)
+    (Die, _) -> game
+      { gamePlayers =
+        updateElemInList
+        (gamePlayers game)
+        (curPlayer 
+          { playerHp = (playerHp curPlayer) - 1
+          , playerIsDead = True
+          }
+        )
+        (fromIntegral playerNum)
       }
   where
+    curPlayer = (gamePlayers game) !! playerNum
     curlvl = gameCurLevel game
     objects = levelObjs curlvl
-    initlvl = (gameLevels game) !! (gameLvlNum game)
     (MovingObject kind pos (vel_x, _) (accel_x, _) animC animD) =
       playerObj ((gamePlayers game) !! playerNum)
     updtile t_pos t =
       curlvl {levelMap = updateElemInMatrix (levelMap curlvl) t_pos t}
+
+-- | Reset the current level.
+resetLevel :: Game -> Game
+resetLevel game = game
+  { gameCurLevel = initlvl
+  , gamePlayers = map
+      (\p -> createPlayer (levelInitPoint initlvl) (playerHp p) False)
+      (gamePlayers game)
+  }
+  where
+    initlvl = (gameLevels game) !! (gameLvlNum game)
 
 -- | Increments the number of coins.
 incrementCoins :: Game -> Game
@@ -141,26 +154,24 @@ move dt (MovingObject kind (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_y
     new_y = pos_y + vel_y * dt + accel_y * dt ** 2 / 2
 
 -- | Apply all provided actions on the player.
-performActions :: LevelMap -> [Movement] -> MovingObject -> MovingObject
-performActions lvl ms = foldr (.) id (map (performAction lvl) ms)
-
-performActions2 :: LevelMap -> [Movement] -> MovingObject -> MovingObject
-performActions2 lvl ms = foldr (.) id (map (performAction2 lvl) ms)
+performActions :: Int -> LevelMap -> [Movement] -> MovingObject -> MovingObject
+performActions playerNum lvl ms = foldr (.) id (map (performAction playerNum lvl) ms)
 
 -- | Apply single action on the player.
-performAction :: LevelMap -> Movement -> MovingObject -> MovingObject
-performAction lvl UP_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction _ DOWN_BUTTON player = player
-performAction _ LEFT_BUTTON player = changeSpeed player (- fst step, 0.0)
-performAction _ RIGHT_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction _ SPECIAL_BUTTON player = player
-performAction _ _ player = player
-
-performAction2 :: LevelMap -> Movement -> MovingObject -> MovingObject
-performAction2 lvl W_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction2 _ A_BUTTON player = changeSpeed player (- fst step, 0.0)
-performAction2 _ D_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction2 _ _ player = player
+performAction :: Int -> LevelMap -> Movement -> MovingObject -> MovingObject
+performAction 0 lvl W_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 0 _ A_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 0 _ D_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 0 _ S_BUTTON player = player
+performAction 1 lvl UP_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 1 _ LEFT_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 1 _ RIGHT_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 1 _ DOWN_BUTTON player = player
+performAction 2 lvl U_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 2 _ H_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 2 _ K_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 2 _ J_BUTTON player = player
+performAction _ _ _ player = player
 
 -- | Try to move the `MovingObject` by given offset.
 tryMove :: Float -> LevelMap -> MovingObject -> MovingObject
@@ -218,31 +229,51 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_
 updateGame :: ScreenSize -> Float -> Game -> Game
 updateGame res dt game =
   case gameNextLvlNum game of
-    Nothing ->
-      checkCollision 1 $ checkCollision 0 game { gameCurLevel = updlvl, gamePlayers = upd_players }
-    Just nextLevel -> game -- TODO:  move to next level.
+    Nothing -> 
+      if length alivePlayers == 0
+        then resetLevel game
+        else foldr (.) id (map checkCollision (take (length players) [0..])) upd_game
+    Just nextLevel -> game -- TODO: move to next level.
   where
     curlvl = gameCurLevel game
     lvlMap = levelMap curlvl
     updlvl = curlvl { levelObjs = upd_objects }
-    (MovingObject _ plr_pos _ _ _ _) = playerObj (head players)
+    upd_game = game { gameCurLevel = updlvl, gamePlayers = upd_players }
     players = gamePlayers game
-    upd_players =
-      [ (head players) {playerObj = ((updatePlayer dt lvlMap
-      . performActions lvlMap (S.toList (pressedKeys game))
-      ) (playerObj (head players)))}
-      , (players !! 1) 
-        {playerObj =
-          (updatePlayer dt lvlMap
-          . performActions2 lvlMap (S.toList (pressedKeys game))) (playerObj (players !! 1))
-        }
-      ]
-    upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs curlvl)
+    alivePlayers = filter (\p -> not (playerIsDead p)) players
+    screen_pos = centerOfScreen alivePlayers
+    upd_players = map
+      (\(p, p_num) ->
+        if (playerIsDead p)
+          then p
+          else updatePlayer res screen_pos dt lvlMap (S.toList (pressedKeys game)) p_num p
+      )
+      (zip players [0..])
+    upd_objects = updateObjects res dt lvlMap screen_pos (levelObjs curlvl)
+
+
+tryMoveInScreen :: Float -> ScreenSize -> LevelMap -> Position -> MovingObject -> MovingObject
+tryMoveInScreen dt res@(res_x, _) lvlMap (screen_x, _) object
+  | new_x < screen_x - boundary || new_x > screen_x + boundary =
+    tryMove dt lvlMap (MovingObject k pos (0, vel_y) (0, accel_y) anC anD)
+  | otherwise = upd_object
+  where
+    (MovingObject k pos (_, vel_y) (_, accel_y) anC anD) = object
+    upd_object@(MovingObject _ (new_x, _) _ _ _ _) = tryMove dt lvlMap object
+    boundary = fromIntegral res_x / (2 * gameScale) - tileSize/2
+    gameScale = getGameScale res lvlMap
 
 -- | Update player state.
-updatePlayer :: Float -> LevelMap -> MovingObject -> MovingObject
-updatePlayer dt lvlMap =
-  updateAnimation dt lvlMap . tryMove dt lvlMap . applyFriction lvlMap . applyGravityAsVel dt
+updatePlayer :: ScreenSize -> Position -> Float -> LevelMap -> [Movement] -> Int -> Player -> Player
+updatePlayer res screen_pos dt lvlMap movements playerNum player = player
+  { playerObj =
+    ( updateAnimation dt lvlMap
+    . tryMoveInScreen dt res lvlMap screen_pos
+    . applyFriction lvlMap 
+    . applyGravityAsVel dt
+    . performActions playerNum lvlMap movements
+    ) (playerObj player)
+  }
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
