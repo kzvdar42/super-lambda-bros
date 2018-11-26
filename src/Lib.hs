@@ -33,6 +33,7 @@ type LevelMap = [[Tile]]
 data Level = Level
   { levelMap :: LevelMap
   , levelObjs :: [MovingObject]
+  , levelSprites  :: [Sprite]
   , levelInitPoint :: Coord
   }
 
@@ -68,10 +69,10 @@ type Size = Vector2
 -- | Data type for the objects of the level.
 data MovingObject = MovingObject Kind Position Velocity Acceleration Float Int
 
--- | Data type for the animation handling
-data Sprite = Sprite Position Float Int Callback
+-- | Data type for the animation handling with 
+data Sprite = Sprite Position Float Float [OnSpriteDestroy]
 
-
+data OnSpriteDestroy = SelfDestroy
 
 -- | Kind of the MovingObject.
 data Kind
