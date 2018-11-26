@@ -70,9 +70,13 @@ type Size = Vector2
 -- | Data type for the objects of the level.
 data MovingObject = MovingObject Kind Position Velocity Acceleration Float Int
 
--- | Data type for the animation handling with 
-data Sprite = Sprite Position Float Float [OnSpriteDestroy]
+-- | Data type for the animation handling with short time-to-live sprites
+data Sprite = Sprite SpriteType Position Float Float [OnSpriteDestroy]
 
+-- | Type of sprite define how given sprite is rendered
+data SpriteType = CoinSprite
+
+-- | Actions that can be performed after sprite is destroyed
 data OnSpriteDestroy = SelfDestroy
 
 -- | Kind of the MovingObject.
@@ -98,6 +102,7 @@ data Assets = Assets
   { marioSprites :: [Picture]
   , envSprites   :: [Picture]
   , enemySprites :: [Picture]
+  , animSprites  :: [Picture]
   }
 
 -- ------------------------ Game scale ------------------------ --
@@ -117,7 +122,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale.
 gameScaleFactor :: Float
-gameScaleFactor = 1/2
+gameScaleFactor = 1
 
 -- | Speed of animation.
 animationScale :: Float

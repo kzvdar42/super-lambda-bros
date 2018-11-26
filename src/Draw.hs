@@ -42,7 +42,9 @@ drawGame assets res game =
     composed = scale gameScale gameScale (
       drawLvl assets lvlMap
       <> pictures (map (drawObject assets) (levelObjs curlvl))
-      <> drawObject assets (playerObj (gamePlayer game)))
+      <> drawObject assets (playerObj (gamePlayer game))
+      <> pictures (map (drawSprite assets) (levelSprites (gameCurLevel game)))
+      )
     info = showScaledText (gameCoins game)
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
@@ -80,6 +82,16 @@ drawObject assets (MovingObject kind (pos_x, pos_y) _ _ animC animD)
     (drawKind assets kind animC animD)
   where
     (size_x, size_y) = getSize kind
+
+-- | Draw object.
+drawSprite :: Assets -> Sprite -> Picture
+drawSprite assets (Sprite _ (pos_x, pos_y) animC _ _)
+  = translate
+    (pos_x + (size_x - tileSize) / 2)
+    (pos_y + (size_y - tileSize) / 2)
+    (drawCoinAnim (animSprites assets) animC)
+  where
+    (size_x, size_y) = (tileSize, tileSize * 4)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
@@ -122,6 +134,9 @@ drawSmallPlayer mSprites _ 7 = getAssetFromList mSprites 7
 drawSmallPlayer mSprites _ 3 = getAssetFromList mSprites 1
 drawSmallPlayer mSprites _ 8 = getAssetFromList mSprites 8
 drawSmallPlayer mSprites _ _ = getAssetFromList mSprites 0
+
+drawCoinAnim :: [Picture] -> Float -> Picture
+drawCoinAnim mSprites animC = getAssetFromList mSprites (0 + ((round animC) `mod` 14))
 
 -- | Safely get the asset from the provided list.
 -- If the asset is not found, return a placaholder picture.

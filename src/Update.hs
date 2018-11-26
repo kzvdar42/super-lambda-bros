@@ -35,10 +35,8 @@ performCollisions (c:cs) game =
     (Delete, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
-        updlvl = Level
-          { levelMap = levelMap curlvl
-          , levelInitPoint = levelInitPoint curlvl
-          , levelObjs = ((MovingObject objKind
+        updlvl = (gameCurLevel game)
+          { levelObjs = ((MovingObject objKind
               (mapCoordToPos (tile_x + off_x, tile_y + off_y))
               (1.0 * tileSize, 0.0) (0.0, 0.0) 0 0) : objects)
           }
@@ -47,12 +45,12 @@ performCollisions (c:cs) game =
     (Change tile, tile_pos) ->
       game {gameCurLevel = updtile tile_pos tile}
     (Bounce, _) ->
-      let 
+      let
         upd_playerObj = 
           (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)
       in
       game {gamePlayer = (gamePlayer game) {playerObj = upd_playerObj}}
-    (CollectCoin, _) -> incrementCoins game
+    (CollectCoin, tile_pos) -> (addCoinToLevel tile_pos . incrementCoins) game
     (Die, _) -> game
       { gameCurLevel = initlvl
       , gamePlayer =
@@ -67,12 +65,21 @@ performCollisions (c:cs) game =
     updtile t_pos t =
       curlvl {levelMap = updateElemInMatrix (levelMap curlvl) t_pos t}
 
+addCoinToLevel :: Coord -> Game -> Game
+addCoinToLevel (coord_x, coord_y) game = game {gameCurLevel = updLvl}
+      where
+        pos = mapCoordToPos (coord_x, coord_y + 1)
+        coinSprite = Sprite CoinSprite pos 0 6 [SelfDestroy]
+        updLvlSprites = coinSprite : levelSprites currLvl
+        currLvl = gameCurLevel game
+        updLvl = currLvl {levelSprites = updLvlSprites}
+
 -- | Increments the number of coins.
 incrementCoins :: Game -> Game
 incrementCoins game
-  | coins < 99 = game { gameCoins = coins + 1 }
-  | otherwise   = game { gamePlayer = upd_player
-                       , gameCoins = coins - 99 }
+  | coins < 99 = (game { gameCoins = coins + 1 })
+  | otherwise   = (game { gamePlayer = upd_player
+                       , gameCoins = coins - 99 })
   where 
     coins = gameCoins game
     upd_player = (gamePlayer game) {playerHp = playerHp (gamePlayer game) + 1}
@@ -209,13 +216,15 @@ updateGame res dt game =
   where
     curlvl = gameCurLevel game
     lvlMap = levelMap curlvl
-    updlvl = curlvl { levelObjs = upd_objects }
+    updlvl = curlvl { levelObjs = upd_objects, levelSprites = upd_sprites }
     player@(MovingObject _ plr_pos _ _ _ _) = playerObj (gamePlayer game)
     upd_player = (gamePlayer game)
       { playerObj = (( updatePlayer dt lvlMap
       . performActions lvlMap (S.toList (pressedKeys game))
       ) player) }
     upd_objects = updateObjects res dt lvlMap plr_pos (levelObjs curlvl)
+    lvlSprites = levelSprites curlvl
+    upd_sprites = updateSprites dt lvlSprites
 
 -- | Update player state.
 updatePlayer :: Float -> LevelMap -> MovingObject -> MovingObject
@@ -236,3 +245,10 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
     leftBoundary = plr_pos_x - (fromIntegral res_x) / (2 / 3 * gameScale)
     rightBoundary = plr_pos_x + (fromIntegral res_x) / gameScale
     gameScale = getGameScale res lvlMap
+
+updateSprites :: Float -> [Sprite] -> [Sprite]
+updateSprites dt [] = []
+updateSprites dt (s:sp) = if ttl<counter then others else updSprite : others
+    where (Sprite typ pos counter ttl act) = s
+          updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
+          others = (updateSprites dt sp)
