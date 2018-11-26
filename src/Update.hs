@@ -190,9 +190,9 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_
   where
     canJ = canObjJump lvlMap (getSize kind) pos
     updAnimD
-      | not (canJump lvl pos) && vel_x > 0.6 * tileSize = 7
-      | not (canJump lvl pos) && vel_x < -0.6 * tileSize = 2
-      | not (canJump lvl pos) = if animD >= 5 then 7 else 2
+      | not (canJump lvlMap pos) && vel_x > 0.6 * tileSize = 7
+      | not (canJump lvlMap pos) && vel_x < -0.6 * tileSize = 2
+      | not (canJump lvlMap pos) = if animD >= 5 then 7 else 2
       -- | accel_x == 0 = 8
       -- | accel_x > 0 && vel_x < 0 = 3
       | vel_x > 0.6 * tileSize = 6
