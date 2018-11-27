@@ -20,7 +20,7 @@ readMap parse filename = do
     content <- (readFile filename)
     let lvlmap = reverseList [[parse sym | sym <- l] | l <- lines content]
     let lvlObjs = getObjects (reverseList (lines content))
-    return Level { levelMap = lvlmap, levelObjs = lvlObjs, levelInitPoint = (2, 2) }
+    return Level { levelMap = lvlmap, levelObjs = lvlObjs, levelInitPoint = (2, 2), levelSprites = []}
   where
     reverseList xs = foldl (\x y -> y:x) [] xs
 
@@ -77,8 +77,9 @@ run = do
   spritesMario <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
   spritesEnv <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
   spritesEnemy <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
+  spritesAnim <- sequence $ map loadBMP (map (\x -> "assets/sprites/sprite_" ++ x ++ ".bmp") (map show [1..7 :: Integer]))
 
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
-  let assets = Assets spritesMario spritesEnv spritesEnemy
+  let assets = Assets spritesMario spritesEnv spritesEnemy spritesAnim
   play FullScreen (makeColorI 92 148 252 255) 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)

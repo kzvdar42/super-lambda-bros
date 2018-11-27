@@ -35,10 +35,8 @@ performCollisions playerNum (c:cs) game =
     (Delete, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
-        updlvl = Level
-          { levelMap = levelMap curlvl
-          , levelInitPoint = levelInitPoint curlvl
-          , levelObjs = ((MovingObject objKind
+        updlvl = (gameCurLevel game)
+          { levelObjs = ((MovingObject objKind
               (mapCoordToPos (tile_x + off_x, tile_y + off_y))
               (1 * tileSize, 0) (0, 0) 0 0) : objects)
           }
@@ -52,7 +50,7 @@ performCollisions playerNum (c:cs) game =
           (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)}
       in
       game {gamePlayers = (updateElemInList (gamePlayers game) upd_player (fromIntegral playerNum))}
-    (CollectCoin, _) -> incrementCoins game
+    (CollectCoin, tile_pos) -> (addCoinToLevel tile_pos . incrementCoins) game
     (Die, _) -> game
       { gamePlayers =
         updateElemInList
@@ -81,12 +79,22 @@ resetLevel game = game
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
 
+
+addCoinToLevel :: Coord -> Game -> Game
+addCoinToLevel (coord_x, coord_y) game = game {gameCurLevel = updLvl}
+      where
+        pos = mapCoordToPos (coord_x, coord_y + 1)
+        coinSprite = Sprite CoinSprite pos 0 6 [SelfDestroy]
+        updLvlSprites = coinSprite : levelSprites currLvl
+        currLvl = gameCurLevel game
+        updLvl = currLvl {levelSprites = updLvlSprites}
+
 -- | Increments the number of coins.
 incrementCoins :: Game -> Game
 incrementCoins game
   | coins < 99 = game { gameCoins = coins + 1 }
-  | otherwise   = game { gamePlayers = upd_players
-                       , gameCoins = coins - 99 }
+  | otherwise  = game { gamePlayers = upd_players
+                      , gameCoins = coins - 99 }
   where 
     coins = gameCoins game
     upd_players =
@@ -207,7 +215,7 @@ canMove lvl (pos_x, pos_y) =
 
 -- | Update the animation state of object.
 updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
-updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_y) animC animD)
+updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, _) animC animD)
   | isPlayer kind =
     MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
   | otherwise =
@@ -217,9 +225,11 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_
     updAnimD
       | not canJ && vel_x > 0.6 * tileSize = 7
       | not canJ && vel_x < -0.6 * tileSize = 2
-      | accel_y <= 0 && vel_x > 0.6 * tileSize = 6
-      | accel_y <= 0 && vel_x < -0.6 * tileSize = 1
       | not canJ = if animD >= 5 then 7 else 2
+      -- | accel_x == 0 = 8
+      -- | accel_x > 0 && vel_x < 0 = 3
+      | vel_x > 0.6 * tileSize = 6
+      | vel_x < -0.6 * tileSize = 1
       | otherwise = if animD >= 5 then 5 else 0
 
 -- | Physics of the game.
@@ -234,7 +244,7 @@ updateGame res dt game =
   where
     curlvl = gameCurLevel game
     lvlMap = levelMap curlvl
-    updlvl = curlvl { levelObjs = upd_objects }
+    updlvl = curlvl { levelObjs = upd_objects, levelSprites = upd_sprites }
     upd_game = game { gameCurLevel = updlvl, gamePlayers = upd_players }
     players = gamePlayers game
     alivePlayers = filter (\p -> not (playerIsDead p)) players
@@ -247,6 +257,7 @@ updateGame res dt game =
       )
       (zip players [0..])
     upd_objects = updateObjects res dt lvlMap screen_pos (levelObjs curlvl)
+    upd_sprites = updateSprites dt (levelSprites curlvl)
 
 
 tryMoveInScreen :: Float -> ScreenSize -> LevelMap -> Position -> MovingObject -> MovingObject
@@ -286,3 +297,10 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
     leftBoundary = plr_pos_x - (fromIntegral res_x) / (2 / 3 * gameScale)
     rightBoundary = plr_pos_x + (fromIntegral res_x) / gameScale
     gameScale = getGameScale res lvlMap
+
+updateSprites :: Float -> [Sprite] -> [Sprite]
+updateSprites _ [] = []
+updateSprites dt (s:sp) = if ttl<counter then others else updSprite : others
+    where (Sprite typ pos counter ttl act) = s
+          updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
+          others = (updateSprites dt sp)
