@@ -97,10 +97,7 @@ incrementCoins game
                       , gameCoins = coins - 99 }
   where 
     coins = gameCoins game
-    upd_players =
-      [ ((gamePlayers game) !! 0) {playerHp = playerHp ((gamePlayers game) !! 0) + 1}
-      , ((gamePlayers game) !! 1) {playerHp = playerHp ((gamePlayers game) !! 1) + 1}
-      ]
+    upd_players = map (\p -> p {playerHp = playerHp p + 1}) (gamePlayers game)
 
 -- | Apply gravity to the `MovingObject`.
 applyGravityAsVel :: Float -> MovingObject -> MovingObject
