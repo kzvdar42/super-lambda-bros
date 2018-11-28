@@ -18,6 +18,7 @@ drawGame assets res game =
     textScale = textScaleFactor * gameScale
     curlvl = (gameCurLevel game)
     lvlMap = levelMap curlvl
+    gameInfo = showScaledText (concat ["coins: ", show (gameCoins game){-, ", lives: ", hp-}])
     -- Debug output
     (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (gamePlayer game)
     (сoord_x, coord_y) = mapPosToCoord pos
@@ -45,7 +46,6 @@ drawGame assets res game =
       <> drawObject assets (playerObj (gamePlayer game))
       <> pictures (map (drawSprite assets) (levelSprites (gameCurLevel game)))
       )
-    info = showScaledText (gameCoins game)
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
     composedRelative = alignWorldToX ((*) gameScale $ fst pos)
@@ -55,7 +55,7 @@ drawGame assets res game =
     <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
       (centerPictureY mapHeight gameScale debug)
     <> translate ((fst fres - coordOffset) / 2)
-      ((snd fres - coordOffset) / 2) info
+      ((snd fres - coordOffset) / 2) gameInfo
 
 -- | Draw the level.
 drawLvl :: Assets -> LevelMap -> Picture

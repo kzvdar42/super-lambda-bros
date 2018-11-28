@@ -11,7 +11,7 @@ import Lib
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
 checkCollision game =
-  case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
+  checkEnemyCollision $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
     Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
       Nothing -> if pos_y < 0 then performCollisions [(Die, (x, y))] game else game
       Just tile -> performCollisions (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
@@ -46,7 +46,7 @@ performCollisions (c:cs) game =
       game {gameCurLevel = updtile tile_pos tile}
     (Bounce, _) ->
       let
-        upd_playerObj = 
+        upd_playerObj =
           (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)
       in
       game {gamePlayer = (gamePlayer game) {playerObj = upd_playerObj}}
@@ -80,7 +80,7 @@ incrementCoins game
   | coins < 99 = (game { gameCoins = coins + 1 })
   | otherwise   = (game { gamePlayer = upd_player
                        , gameCoins = coins - 99 })
-  where 
+  where
     coins = gameCoins game
     upd_player = (gamePlayer game) {playerHp = playerHp (gamePlayer game) + 1}
 
@@ -125,7 +125,7 @@ tryJump lvlMap player@(MovingObject kind pos (vel_x, _) accel animC animD) (off_
   | canObjJump lvlMap (getSize kind) pos
     = MovingObject kind pos (vel_x + off_x, off_y) accel animC animD
   | otherwise = player
-    
+
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
@@ -252,3 +252,7 @@ updateSprites dt (s:sp) = if ttl<counter then others else updSprite : others
     where (Sprite typ pos counter ttl act) = s
           updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
           others = (updateSprites dt sp)
+
+-- Denchick777
+checkEnemyCollision :: Game -> Game
+checkEnemyCollision g = _
