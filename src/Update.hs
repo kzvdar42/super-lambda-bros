@@ -11,7 +11,7 @@ import Lib
 -- And if is, run the `performCollisions`.
 checkCollision :: Game -> Game
 checkCollision game =
-  checkEnemyCollision $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
+  collideAllMovingObjects $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
     Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
       Nothing -> if pos_y < 0 then performCollisions [(Die, (x, y))] game else game
       Just tile -> performCollisions (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
@@ -193,7 +193,7 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, accel_
   | isPlayer kind =
     MovingObject kind pos vel accel (mod' (animC + dt * animationScale) (getAnimDivisor kind)) updAnimD
   | otherwise =
-    MovingObject kind pos vel accel (mod' (animC + dt*2) (getAnimDivisor kind)) updAnimD
+    MovingObject kind pos vel accel (mod' (animC + dt * 2) (getAnimDivisor kind)) updAnimD
   where
     canJ = canObjJump lvlMap (getSize kind) pos
     updAnimD
@@ -248,11 +248,23 @@ updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
 
 updateSprites :: Float -> [Sprite] -> [Sprite]
 updateSprites dt [] = []
-updateSprites dt (s:sp) = if ttl<counter then others else updSprite : others
-    where (Sprite typ pos counter ttl act) = s
-          updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
-          others = (updateSprites dt sp)
+updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
+  where
+    (Sprite typ pos counter ttl act) = s
+    updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
+    others = (updateSprites dt sp)
 
 -- Denchick777
-checkEnemyCollision :: Game -> Game
-checkEnemyCollision g = _
+
+collideAllMovingObjects :: Game -> Game
+collideAllMovingObjects game =
+  game { gamePlayer = updatedPlayers !! 0, gameCurLevel = updatedLevel }
+  where
+    curLvl = gameCurLevel game
+    updatedLevel = curLvl { levelObjs = updatedLevelObjs }
+    enemies = levelObjs curLvl
+    players = [gamePlayer game]  -- TODO multiplayer
+    (updatedLevelObjs, updatedPlayers) = collideEnemiesAndPlayers enemies players
+
+collideEnemiesAndPlayers :: [MovingObject] -> [MovingObject] -> ([MovingObject], [MovingObject])
+collideEnemiesAndPlayers enemies players = _

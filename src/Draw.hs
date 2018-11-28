@@ -54,7 +54,7 @@ drawGame assets res game =
     composedRelative
     <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
       (centerPictureY mapHeight gameScale debug)
-    <> translate ((fst fres - coordOffset) / 2)
+    <> translate ((fst fres - coordOffset - charSize * 10) / 2)
       ((snd fres - coordOffset) / 2) gameInfo
 
 -- | Draw the level.
