@@ -258,13 +258,48 @@ updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
 
 collideAllMovingObjects :: Game -> Game
 collideAllMovingObjects game =
-  game { gamePlayer = updatedPlayers !! 0, gameCurLevel = updatedLevel }
+  game { gamePlayer = updatedPlayer, gameCurLevel = updatedLevel }
   where
     curLvl = gameCurLevel game
+    updatedPlayer = (gamePlayer game) { playerObj = updatedPlayerObjs !! 0 }
     updatedLevel = curLvl { levelObjs = updatedLevelObjs }
     enemies = levelObjs curLvl
-    players = [gamePlayer game]  -- TODO multiplayer
-    (updatedLevelObjs, updatedPlayers) = collideEnemiesAndPlayers enemies players
+    playerObjs = map playerObj [gamePlayer game]  -- TODO multiplayer
+    (updatedPlayerObjs, updatedLevelObjs) = collidePlayersAndEnemies playerObjs enemies
 
-collideEnemiesAndPlayers :: [MovingObject] -> [MovingObject] -> ([MovingObject], [MovingObject])
-collideEnemiesAndPlayers enemies players = _
+collidePlayersAndEnemies
+  :: [MovingObject] -- ^ List of players
+  -> [MovingObject] -- ^ List of enemies
+  -> ([MovingObject], [MovingObject])
+collidePlayersAndEnemies players enemies = (updatedPlayers, updatedEnemies)
+  where
+    (updatedPlayers, halfUpdatedEnemies) = collideEachWithClosest players enemies
+    (updatedEnemies, _) = collideEachWithClosest halfUpdatedEnemies halfUpdatedEnemies
+
+    collideEachWithClosest
+      :: [MovingObject] -- ^ List of objects to perform collision of
+      -> [MovingObject] -- ^ List of object to perform collision with closest of them
+      -> ([MovingObject], [MovingObject])
+    collideEachWithClosest []        []     = ([], [])
+    collideEachWithClosest toCollide []     = (toCollide, [])
+    collideEachWithClosest []        others = ([], others)
+    collideEachWithClosest toCollide others =
+      ( firstCollided : nextToCollide
+      , secondCollided : nextOthers
+      )
+      where
+        (nextToCollide, nextOthers) = collideEachWithClosest othersToCollide shorterOthers
+        (collideIt : othersToCollide) = toCollide
+        (firstCollided, secondCollided) = performCollision collideIt (others !! closestIndex)
+        closestIndex = findClosestIndex collideIt othersToCollide
+        shorterOthers = removeByIndex closestIndex others
+
+        findClosestIndex :: MovingObject -> [MovingObject] -> Int
+        findClosestIndex _ [] = -1
+        findClosestIndex obj lst = _
+
+        removeByIndex :: Int -> [a] -> [a]
+        removeByIndex i lst = _
+
+        performCollision :: MovingObject -> MovingObject -> (MovingObject, MovingObject)
+        performCollision fst sec = _
