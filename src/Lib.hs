@@ -38,20 +38,27 @@ data Level = Level
   }
 
 -- | Types of possible player input.
-data Movement = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON | SPECIAL_BUTTON
+data Movement
+  -- | First player.
+  = P1_U_BUTTON | P1_L_BUTTON | P1_D_BUTTON | P1_R_BUTTON
+  -- | Second player.
+  | P2_U_BUTTON | P2_L_BUTTON | P2_D_BUTTON | P2_R_BUTTON
+  -- | Third player.
+  | P3_U_BUTTON | P3_L_BUTTON | P3_D_BUTTON | P3_R_BUTTON
   deriving (Eq, Ord, Show)
 
 -- | Player state.
 data Player = Player
-  { playerObj :: MovingObject -- ^ MovingObject of a player
-  , playerHp  :: Int          -- ^ Player Hp
+  { playerObj    :: MovingObject -- ^ MovingObject of a player
+  , playerHp     :: Int          -- ^ Player Hp
+  , playerIsDead :: Bool         -- ^ Is player dead?
   }
 
 -- | Current state of the game.
 data Game = Game
     { gameLevels     :: [Level]        -- ^ Levels
     , gameCurLevel   :: Level          -- ^ Current level
-    , gamePlayer     :: Player         -- ^ Player
+    , gamePlayers    :: [Player]       -- ^ Player
     , gameCoins      :: Int            -- ^ Number of coins
     , gameLvlNum     :: Int            -- ^ Current level number
     , gameNextLvlNum :: Maybe Int      -- ^ Next level number
@@ -210,7 +217,11 @@ initGame :: [Level] -> Game
 initGame levels = Game 
     { gameLevels = levels
     , gameCurLevel = currLevel
-    , gamePlayer = (initPlayer (levelInitPoint currLevel) 3)
+    , gamePlayers = 
+      [ initPlayer (levelInitPoint currLevel)
+      , initPlayer (levelInitPoint currLevel)
+      , initPlayer (levelInitPoint currLevel)
+      ]
     , gameCoins = 0
     , gameLvlNum = lvlNum
     , gameNextLvlNum = Nothing
@@ -221,13 +232,17 @@ initGame levels = Game
     currLevel = (levels !! lvlNum)
 
 -- | Initial state of the player.
-initPlayer :: Coord -> Int -> Player
-initPlayer (coord_x, coord_y) hp = Player
-  { playerObj = MovingObject SmallPlayer pos (0.0, 0.0) (0.0, 0.0) 0 5
+initPlayer :: Coord -> Player
+initPlayer coord = createPlayer coord 3 False
+
+-- | Create the player.
+createPlayer :: Coord -> Int -> Bool -> Player
+createPlayer coord hp isDead = Player
+  { playerObj =
+      MovingObject SmallPlayer (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
   , playerHp = hp
+  , playerIsDead = isDead
   }
-  where
-    pos = (fromIntegral coord_x * tileSize, fromIntegral coord_y * tileSize)
 
 -- ------------------------ Work with map ------------------------ --
 
@@ -312,3 +327,17 @@ getGameScale (_, res_y) lvlMap = gameScaleFactor * (fromIntegral res_y) / getMap
 -- | Based on tile count of stored map calculate map size
 getMapHeight :: LevelMap -> Float
 getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
+
+-- | Get the center between players.
+centerOfScreen :: [Player] -> Float
+centerOfScreen [] = 100
+centerOfScreen players =
+  mean $ foldr (minMax . getPos . playerObj) (pos1_x, pos1_x) (tail players)
+  where
+    (pos1_x, _) = (getPos . playerObj . head) players
+    getPos (MovingObject _ pos _ _ _ _) = pos
+    mean (lim_l, lim_r) = (lim_l + lim_r) / 2
+    minMax (pos_x, _) lim@(lim_l, lim_r)
+      | pos_x < lim_l = (pos_x, lim_r)
+      | pos_x > lim_r = (lim_l, pos_x)
+      | otherwise = lim
