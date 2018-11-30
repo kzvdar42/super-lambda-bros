@@ -214,12 +214,11 @@ getInitSpeed Flagpole =    (0, 0)
 
 -- | Init state of the game.
 initGame :: [Level] -> Game
-initGame levels = Game 
+initGame levels = Game
     { gameLevels = levels
     , gameCurLevel = currLevel
-    , gamePlayers = 
+    , gamePlayers =
       [ initPlayer (levelInitPoint currLevel)
-      , initPlayer (levelInitPoint currLevel)
       , initPlayer (levelInitPoint currLevel)
       ]
     , gameCoins = 0
