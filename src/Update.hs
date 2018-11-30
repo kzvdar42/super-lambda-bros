@@ -305,13 +305,13 @@ updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
 
 collideAllMovingObjects :: Game -> Game
 collideAllMovingObjects game =
-  game { gamePlayer = updatedPlayer, gameCurLevel = updatedLevel }
+  game { gamePlayers = updatedPlayers, gameCurLevel = updatedLevel }
   where
     curLvl = gameCurLevel game
-    updatedPlayer = (gamePlayer game) { playerObj = updatedPlayerObjs !! 0 }
+    updatedPlayers = zipWith (\o n -> o { playerObj = n }) (gamePlayers game) updatedPlayerObjs
     updatedLevel = curLvl { levelObjs = updatedLevelObjs }
     enemies = levelObjs curLvl
-    playerObjs = map playerObj [gamePlayer game]  -- TODO multiplayer
+    playerObjs = map playerObj (gamePlayers game)
     (updatedPlayerObjs, updatedLevelObjs) = collidePlayersAndEnemies playerObjs enemies
 
 collidePlayersAndEnemies
@@ -338,15 +338,33 @@ collidePlayersAndEnemies players enemies = (updatedPlayers, updatedEnemies)
         (nextToCollide, nextOthers) = collideEachWithClosest othersToCollide shorterOthers
         (collideIt : othersToCollide) = toCollide
         (firstCollided, secondCollided) = performCollision collideIt (others !! closestIndex)
-        closestIndex = findClosestIndex collideIt othersToCollide
+        closestIndex = findClosestIndex collideIt others
         shorterOthers = removeByIndex closestIndex others
 
         findClosestIndex :: MovingObject -> [MovingObject] -> Int
-        findClosestIndex _ [] = -1
-        findClosestIndex obj lst = _
+        findClosestIndex _ [] = error "Could not find index in an empty array"
+        findClosestIndex obj (h:t) = findBestElIndex (distance obj) 1 0 (distance obj h) t
+          where
+            distance mo1 mo2 = sqrt ((x1 - x2) ^^ 2 + (y1 - y2) ^^ 2)
+              where
+                (MovingObject _ (x1, y1) _ _ _ _) = mo1
+                (MovingObject _ (x2, y2) _ _ _ _) = mo2
+
+            findBestElIndex _ _ bestInd _ [] = bestInd
+            findBestElIndex f curInd bestInd bestEl (h':t') =
+              findBestElIndex f (curInd + 1) betterInd betterEl t'
+              where
+                curEl = f h'
+                (betterInd, betterEl) =
+                  if bestEl < curEl
+                    then (curInd, curEl)
+                    else (bestInd, bestEl)
 
         removeByIndex :: Int -> [a] -> [a]
-        removeByIndex i lst = _
+        removeByIndex _ [] = []
+        removeByIndex i (h:t)
+          | i == 0 = t
+          | otherwise = h : removeByIndex (i - 1) t
 
         performCollision :: MovingObject -> MovingObject -> (MovingObject, MovingObject)
-        performCollision fst sec = _
+        performCollision fstObj secObj = (fstObj, secObj) -- TODO
