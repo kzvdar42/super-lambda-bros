@@ -161,18 +161,18 @@ performActions playerNum lvl ms = foldr (.) id (map (performAction playerNum lvl
 
 -- | Apply single action on the player.
 performAction :: Int -> LevelMap -> Movement -> MovingObject -> MovingObject
-performAction 0 lvl W_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 0 _ A_BUTTON player = changeSpeed player (- fst step, 0.0)
-performAction 0 _ D_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction 0 _ S_BUTTON player = player
-performAction 1 lvl UP_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 1 _ LEFT_BUTTON player = changeSpeed player (- fst step, 0.0)
-performAction 1 _ RIGHT_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction 1 _ DOWN_BUTTON player = player
-performAction 2 lvl U_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 2 _ H_BUTTON player = changeSpeed player (- fst step, 0.0)
-performAction 2 _ K_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction 2 _ J_BUTTON player = player
+performAction 0 lvl P1_U_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 0 _   P1_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 0 _   P1_D_BUTTON player = player
+performAction 0 _   P1_R_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 1 lvl P2_U_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 1 _   P2_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 1 _   P2_D_BUTTON player = player
+performAction 1 _   P2_R_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 2 lvl P3_U_BUTTON player = tryJump lvl player (0.0, snd step)
+performAction 2 _   P3_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 2 _   P3_D_BUTTON player = player
+performAction 2 _   P3_R_BUTTON player = changeSpeed player (fst step, 0.0)
 performAction _ _ _ player = player
 
 -- | Try to move the `MovingObject` by given offset.
@@ -257,9 +257,9 @@ updateGame res dt game =
     upd_sprites = updateSprites dt (levelSprites curlvl)
 
 
-tryMoveInScreen :: Float -> ScreenSize -> LevelMap -> Position -> MovingObject -> MovingObject
-tryMoveInScreen dt res@(res_x, _) lvlMap (screen_x, _) object
-  | new_x < screen_x - boundary || new_x > screen_x + boundary =
+tryMoveInScreen :: Float -> ScreenSize -> LevelMap -> Float -> MovingObject -> MovingObject
+tryMoveInScreen dt res@(res_x, _) lvlMap centerOfScreenPos object
+  | new_x < centerOfScreenPos - boundary || new_x > centerOfScreenPos + boundary =
     tryMove dt lvlMap (MovingObject k pos (0, vel_y) (0, accel_y) anC anD)
   | otherwise = upd_object
   where
@@ -269,11 +269,11 @@ tryMoveInScreen dt res@(res_x, _) lvlMap (screen_x, _) object
     gameScale = getGameScale res lvlMap
 
 -- | Update player state.
-updatePlayer :: ScreenSize -> Position -> Float -> LevelMap -> [Movement] -> Int -> Player -> Player
-updatePlayer res screen_pos dt lvlMap movements playerNum player = player
+updatePlayer :: ScreenSize -> Float -> Float -> LevelMap -> [Movement] -> Int -> Player -> Player
+updatePlayer res centerOfScreenPos dt lvlMap movements playerNum player = player
   { playerObj =
     ( updateAnimation dt lvlMap
-    . tryMoveInScreen dt res lvlMap screen_pos
+    . tryMoveInScreen dt res lvlMap centerOfScreenPos
     . applyFriction lvlMap 
     . applyGravityAsVel dt
     . performActions playerNum lvlMap movements
@@ -282,17 +282,17 @@ updatePlayer res screen_pos dt lvlMap movements playerNum player = player
 
 -- | Update objects due the current position of player.
 -- If the object is far from the screen, doesn't update it.
-updateObjects :: ScreenSize -> Float -> LevelMap -> Position -> [MovingObject] -> [MovingObject]
+updateObjects :: ScreenSize -> Float -> LevelMap -> Float -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
-updateObjects res@(res_x, _) dt lvlMap plr_pos@(plr_pos_x, _) (obj:objs)
+updateObjects res@(res_x, _) dt lvlMap centerOfScreenPos (obj:objs)
   | pos_x >= leftBoundary && pos_x <= rightBoundary
     = ((updateAnimation dt lvlMap . tryMove dt lvlMap . applyGravityAsVel dt) obj)
-      : updateObjects res dt lvlMap plr_pos objs
-  | otherwise = obj : updateObjects res dt lvlMap plr_pos objs
+      : updateObjects res dt lvlMap centerOfScreenPos objs
+  | otherwise = obj : updateObjects res dt lvlMap centerOfScreenPos objs
   where
     (MovingObject _ (pos_x, _) _ _ _ _) = obj
-    leftBoundary = plr_pos_x - (fromIntegral res_x) / (2 / 3 * gameScale)
-    rightBoundary = plr_pos_x + (fromIntegral res_x) / gameScale
+    leftBoundary = centerOfScreenPos - (fromIntegral res_x) / (2 / 3 * gameScale)
+    rightBoundary = centerOfScreenPos + (fromIntegral res_x) / gameScale
     gameScale = getGameScale res lvlMap
 
 updateSprites :: Float -> [Sprite] -> [Sprite]

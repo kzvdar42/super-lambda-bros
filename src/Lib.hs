@@ -40,11 +40,11 @@ data Level = Level
 -- | Types of possible player input.
 data Movement
   -- | First player.
-  = UP_BUTTON | DOWN_BUTTON | LEFT_BUTTON | RIGHT_BUTTON
+  = P1_U_BUTTON | P1_L_BUTTON | P1_D_BUTTON | P1_R_BUTTON
   -- | Second player.
-  | W_BUTTON | S_BUTTON | A_BUTTON | D_BUTTON
+  | P2_U_BUTTON | P2_L_BUTTON | P2_D_BUTTON | P2_R_BUTTON
   -- | Third player.
-  | U_BUTTON | J_BUTTON | H_BUTTON | K_BUTTON
+  | P3_U_BUTTON | P3_L_BUTTON | P3_D_BUTTON | P3_R_BUTTON
   deriving (Eq, Ord, Show)
 
 -- | Player state.
@@ -219,8 +219,8 @@ initGame levels = Game
     , gameCurLevel = currLevel
     , gamePlayers = 
       [ initPlayer (levelInitPoint currLevel)
-      -- , initPlayer (levelInitPoint currLevel)
-      -- , initPlayer (levelInitPoint currLevel)
+      , initPlayer (levelInitPoint currLevel)
+      , initPlayer (levelInitPoint currLevel)
       ]
     , gameCoins = 0
     , gameLvlNum = lvlNum
@@ -329,11 +329,15 @@ getMapHeight :: LevelMap -> Float
 getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
 
 -- | Get the center between players.
-centerOfScreen :: [Player] -> Position
-centerOfScreen [] = (0, 0)
-centerOfScreen players = foldr (mean . getPos . playerObj) posOfFirst (tail players)
+centerOfScreen :: [Player] -> Float
+centerOfScreen [] = 100
+centerOfScreen players =
+  mean $ foldr (minMax . getPos . playerObj) (pos1_x, pos1_x) (tail players)
   where
-    posOfFirst = (getPos . playerObj . head) players
+    (pos1_x, _) = (getPos . playerObj . head) players
     getPos (MovingObject _ pos _ _ _ _) = pos
-    mean (pos1_x, pos1_y) (pos2_x, pos2_y) = 
-      ((pos1_x + pos2_x) / 2, (pos1_y + pos2_y) / 2)
+    mean (lim_l, lim_r) = (lim_l + lim_r) / 2
+    minMax (pos_x, _) lim@(lim_l, lim_r)
+      | pos_x < lim_l = (pos_x, lim_r)
+      | pos_x > lim_r = (lim_l, pos_x)
+      | otherwise = lim

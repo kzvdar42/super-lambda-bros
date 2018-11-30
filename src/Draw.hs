@@ -49,7 +49,7 @@ drawGame assets res game =
     info = showScaledText (gameCoins game)
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
-    composedRelative = alignWorldToX ((*) gameScale $ fst (centerOfScreen alivePlayers))
+    composedRelative = alignWorldToX ((*) gameScale (centerOfScreen alivePlayers))
       (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
     composedRelative
