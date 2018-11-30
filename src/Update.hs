@@ -323,48 +323,48 @@ collidePlayersAndEnemies players enemies = (updatedPlayers, updatedEnemies)
     (updatedPlayers, halfUpdatedEnemies) = collideEachWithClosest players enemies
     (updatedEnemies, _) = collideEachWithClosest halfUpdatedEnemies halfUpdatedEnemies
 
-    collideEachWithClosest
-      :: [MovingObject] -- ^ List of objects to perform collision of
-      -> [MovingObject] -- ^ List of object to perform collision with closest of them
-      -> ([MovingObject], [MovingObject])
-    collideEachWithClosest []        []     = ([], [])
-    collideEachWithClosest toCollide []     = (toCollide, [])
-    collideEachWithClosest []        others = ([], others)
-    collideEachWithClosest toCollide others =
-      ( firstCollided : nextToCollide
-      , secondCollided : nextOthers
-      )
+collideEachWithClosest
+  :: [MovingObject] -- ^ List of objects to perform collision of
+  -> [MovingObject] -- ^ List of objects to perform collision with closest of them
+  -> ([MovingObject], [MovingObject])
+collideEachWithClosest []        []     = ([], [])
+collideEachWithClosest toCollide []     = (toCollide, [])
+collideEachWithClosest []        others = ([], others)
+collideEachWithClosest toCollide others =
+  ( firstCollided : nextToCollide
+  , secondCollided : nextOthers
+  )
+  where
+    (nextToCollide, nextOthers) = collideEachWithClosest othersToCollide shorterOthers
+    (collideIt : othersToCollide) = toCollide
+    (firstCollided, secondCollided) = performCollision collideIt (others !! closestIndex)
+    closestIndex = findClosestIndex collideIt others
+    shorterOthers = removeByIndex closestIndex others
+
+    findClosestIndex :: MovingObject -> [MovingObject] -> Int
+    findClosestIndex _ [] = error "Could not find index in an empty array"
+    findClosestIndex obj (h:t) = findBestElIndex (distance obj) 1 0 (distance obj h) t
       where
-        (nextToCollide, nextOthers) = collideEachWithClosest othersToCollide shorterOthers
-        (collideIt : othersToCollide) = toCollide
-        (firstCollided, secondCollided) = performCollision collideIt (others !! closestIndex)
-        closestIndex = findClosestIndex collideIt others
-        shorterOthers = removeByIndex closestIndex others
-
-        findClosestIndex :: MovingObject -> [MovingObject] -> Int
-        findClosestIndex _ [] = error "Could not find index in an empty array"
-        findClosestIndex obj (h:t) = findBestElIndex (distance obj) 1 0 (distance obj h) t
+        distance mo1 mo2 = sqrt ((x1 - x2) ^^ 2 + (y1 - y2) ^^ 2)
           where
-            distance mo1 mo2 = sqrt ((x1 - x2) ^^ 2 + (y1 - y2) ^^ 2)
-              where
-                (MovingObject _ (x1, y1) _ _ _ _) = mo1
-                (MovingObject _ (x2, y2) _ _ _ _) = mo2
+            (MovingObject _ (x1, y1) _ _ _ _) = mo1
+            (MovingObject _ (x2, y2) _ _ _ _) = mo2
 
-            findBestElIndex _ _ bestInd _ [] = bestInd
-            findBestElIndex f curInd bestInd bestEl (h':t') =
-              findBestElIndex f (curInd + 1) betterInd betterEl t'
-              where
-                curEl = f h'
-                (betterInd, betterEl) =
-                  if bestEl < curEl
-                    then (curInd, curEl)
-                    else (bestInd, bestEl)
+        findBestElIndex _ _ bestInd _ [] = bestInd
+        findBestElIndex f curInd bestInd bestEl (h':t') =
+          findBestElIndex f (curInd + 1) betterInd betterEl t'
+          where
+            curEl = f h'
+            (betterInd, betterEl) =
+              if bestEl < curEl
+                then (curInd, curEl)
+                else (bestInd, bestEl)
 
-        removeByIndex :: Int -> [a] -> [a]
-        removeByIndex _ [] = []
-        removeByIndex i (h:t)
-          | i == 0 = t
-          | otherwise = h : removeByIndex (i - 1) t
+    removeByIndex :: Int -> [a] -> [a]
+    removeByIndex _ [] = []
+    removeByIndex i (h:t)
+      | i == 0 = t
+      | otherwise = h : removeByIndex (i - 1) t
 
-        performCollision :: MovingObject -> MovingObject -> (MovingObject, MovingObject)
-        performCollision fstObj secObj = (fstObj, secObj) -- TODO
+performCollision :: MovingObject -> MovingObject -> (MovingObject, MovingObject)
+performCollision fstObj secObj = (fstObj, secObj) -- TODO
