@@ -89,8 +89,8 @@ data OnSpriteDestroy = SelfDestroy
 -- | Kind of the MovingObject.
 data Kind
   -- Player
-  = BigPlayer
-  | SmallPlayer
+  = BigPlayer Integer
+  | SmallPlayer Integer
   -- Enemies
   | Gumba
   | Turtle
@@ -106,10 +106,15 @@ data CollisionType = DeleteTile | DeleteObj Int | Spawn Kind Coord | Change Tile
 
 -- | Container with textures for objects.
 data Assets = Assets
-  { marioSprites :: [Picture]
-  , envSprites   :: [Picture]
-  , enemySprites :: [Picture]
-  , animSprites  :: [Picture]
+  { marioSprites      :: [Picture]
+  , luigiSprites      :: [Picture]
+  , francescoSprites  :: [Picture]
+  , marioSpritesB     :: [Picture]
+  , luigiSpritesB     :: [Picture]
+  , francescoSpritesB :: [Picture]
+  , envSprites        :: [Picture]
+  , enemySprites      :: [Picture]
+  , animSprites       :: [Picture]
   }
 
 -- ------------------------ Game scale ------------------------ --
@@ -152,8 +157,8 @@ thresh = 0.1 * tileSize
 
 -- | Is this object a player?
 isPlayer :: Kind -> Bool
-isPlayer BigPlayer = True
-isPlayer SmallPlayer = True
+isPlayer (BigPlayer _)   = True
+isPlayer (SmallPlayer _) = True
 isPlayer _ = False
 
 -- | Can Objects move through this tile?
@@ -189,26 +194,26 @@ typeOfCollision _ = [Bounce]
 
 -- | Get size of `MovingObject of given kind.
 getSize :: Kind -> Size
-getSize BigPlayer =   (minObjSize * 2, minObjSize * 4)
-getSize SmallPlayer = (minObjSize * 2, minObjSize * 2)
-getSize Gumba =       (minObjSize * 2, minObjSize * 2)
-getSize Turtle =      (minObjSize * 2, minObjSize * 3)
-getSize Mushroom =    (minObjSize * 2, minObjSize * 2)
-getSize HpMushroom =  (minObjSize * 2, minObjSize * 2)
-getSize Star =        (minObjSize * 2, minObjSize * 2)
-getSize Shell =       (minObjSize * 2, minObjSize * 2)
-getSize Flagpole =    (1 * tileSize, 10 * tileSize)
+getSize (BigPlayer _)   = (minObjSize * 2, minObjSize * 4)
+getSize (SmallPlayer _) = (minObjSize * 2, minObjSize * 2)
+getSize Gumba           = (minObjSize * 2, minObjSize * 2)
+getSize Turtle          = (minObjSize * 2, minObjSize * 3)
+getSize Mushroom        = (minObjSize * 2, minObjSize * 2)
+getSize HpMushroom      = (minObjSize * 2, minObjSize * 2)
+getSize Star            = (minObjSize * 2, minObjSize * 2)
+getSize Shell           = (minObjSize * 2, minObjSize * 2)
+getSize Flagpole        = (1 * tileSize, 10 * tileSize)
 
 getInitSpeed :: Kind -> Vector2
-getInitSpeed BigPlayer =   (0, 0)
-getInitSpeed SmallPlayer = (0, 0)
-getInitSpeed Gumba =       (-1 * tileSize, 0)
-getInitSpeed Turtle =      (-1 * tileSize, 0)
-getInitSpeed Mushroom =    (-1 * tileSize, 0)
-getInitSpeed HpMushroom =  (-1 * tileSize, 0)
-getInitSpeed Star =        (-1 * tileSize, g)
-getInitSpeed Shell =       (-1 * tileSize, 0)
-getInitSpeed Flagpole =    (0, 0)
+getInitSpeed (BigPlayer _)   = (0, 0)
+getInitSpeed (SmallPlayer _) = (0, 0)
+getInitSpeed Gumba           = (-1 * tileSize, 0)
+getInitSpeed Turtle          = (-1 * tileSize, 0)
+getInitSpeed Mushroom        = (-1 * tileSize, 0)
+getInitSpeed HpMushroom      = (-1 * tileSize, 0)
+getInitSpeed Star            = (-1 * tileSize, g)
+getInitSpeed Shell           = (-1 * tileSize, 0)
+getInitSpeed Flagpole        = (0, 0)
 
 -- ------------------------ Game initialization ------------------------ --
 
@@ -218,8 +223,9 @@ initGame levels = Game
     { gameLevels = levels
     , gameCurLevel = currLevel
     , gamePlayers =
-      [ initPlayer (levelInitPoint currLevel)
-      , createPlayer BigPlayer (levelInitPoint currLevel) 3 False
+      [ initPlayer 0 (levelInitPoint currLevel)
+      , initPlayer 1 (levelInitPoint currLevel)
+      , initPlayer 3 (levelInitPoint currLevel)
       ]
     , gameCoins = 0
     , gameLvlNum = lvlNum
@@ -231,8 +237,8 @@ initGame levels = Game
     currLevel = (levels !! lvlNum)
 
 -- | Initial state of the player.
-initPlayer :: Coord -> Player
-initPlayer coord = createPlayer SmallPlayer coord 3 False
+initPlayer :: Integer -> Coord -> Player
+initPlayer n coord = createPlayer (SmallPlayer n) coord 3 False
 
 -- | Create the player.
 createPlayer :: Kind -> Coord -> Int -> Bool -> Player

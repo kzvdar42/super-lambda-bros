@@ -114,8 +114,14 @@ drawTile _ Empty = blank
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Float -> Int -> Picture
-drawKind assets BigPlayer _ _ = getAssetFromList (marioSprites assets) 0
-drawKind assets SmallPlayer animC animD = drawSmallPlayer (marioSprites assets) animC animD
+drawKind assets (SmallPlayer 0) animC animD = drawSmallPlayer (marioSprites assets) animC animD
+drawKind assets (BigPlayer 0) animC animD   = drawSmallPlayer (marioSpritesB assets) animC animD
+drawKind assets (SmallPlayer 1) animC animD = drawSmallPlayer (luigiSprites assets) animC animD
+drawKind assets (BigPlayer 1) animC animD   = drawSmallPlayer (luigiSpritesB assets) animC animD
+drawKind assets (SmallPlayer 2) animC animD = drawSmallPlayer (francescoSprites assets) animC animD
+drawKind assets (BigPlayer 2) animC animD   = drawSmallPlayer (francescoSpritesB assets) animC animD
+drawKind assets (SmallPlayer _) animC animD = drawSmallPlayer [] animC animD
+drawKind assets (BigPlayer _) animC animD   = drawSmallPlayer [] animC animD
 drawKind assets Gumba animC _ = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
 drawKind assets Turtle animC _ = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
 drawKind assets Mushroom _ _ = getAssetFromList (enemySprites assets) 4
