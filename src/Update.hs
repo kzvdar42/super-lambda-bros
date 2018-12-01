@@ -64,14 +64,24 @@ performCollisions playerNum (c:cs) game =
       }
     (DeleteObj objNum, _) -> game 
       { gameCurLevel =
-          (gameCurLevel game) {levelObjs = removeByIndex objNum objects}
+          (gameCurLevel game) {levelObjs = removeFromList objNum objects}
       }
+    (ToBig, _) -> game
+      { gamePlayers =
+        updateElemInList
+        (gamePlayers game)
+        (curPlayer 
+          {playerObj = MovingObject (BigPlayer (getPlayerNum kind)) pos vel accel animC animD}
+        )
+        (fromIntegral playerNum)
+      }
+    (MoveToNextLevel, _) -> game {gameNextLvlNum = Just (gameLvlNum game + 1)}
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
     curPlayer = (gamePlayers game) !! playerNum
     curlvl = gameCurLevel game
     objects = levelObjs curlvl
-    (MovingObject kind pos (vel_x, _) (accel_x, _) animC animD) =
+    (MovingObject kind pos vel@(vel_x, _) accel@(accel_x, _) animC animD) =
       playerObj ((gamePlayers game) !! playerNum)
     updtile t_pos t =
       curlvl {levelMap = updateElemInMatrix (levelMap curlvl) t_pos t}
@@ -89,8 +99,13 @@ resetLevel game = game
   }
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
-resetObj (MovingObject k _ v a anC anD) new_coord = 
-  MovingObject k (mapCoordToPos new_coord) (0, 0) (0, 0) anC anD
+resetObj (MovingObject k _ _ _ anC anD) new_coord =
+  MovingObject (SmallPlayer (getPlayerNum k)) (mapCoordToPos new_coord) (0, 0) (0, 0) anC anD
+
+getPlayerNum :: Kind -> Integer
+getPlayerNum (SmallPlayer n) = n
+getPlayerNum (BigPlayer n) = n
+getPlayerNum _ = -1
 
 
 addCoinToLevel :: Coord -> Game -> Game
@@ -269,7 +284,13 @@ updateGame res dt game =
       if length alivePlayers == 0
         then resetLevel game
         else foldr (.) id (map checkCollision (take (length players) [0..])) upd_game
-    Just nextLevel -> game -- TODO: move to next level.
+    Just nextLevel -> case takeElemFromList (gameLevels game) (fromIntegral nextLevel) of
+      Nothing -> game
+      Just nextlvl -> resetLevel $ game 
+        { gameLvlNum = nextLevel
+        , gameNextLvlNum = Nothing
+        , gameCurLevel = nextlvl
+        }
   where
     curlvl = gameCurLevel game
     lvlMap = levelMap curlvl
@@ -329,17 +350,17 @@ updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
 -- | Collide all objects with players.
 collideWithObjects :: Game -> Game
 collideWithObjects game =
-  foldr (.) id 
+  foldr (.) id
     (map (\plr_num ->
-      performCollisions plr_num 
+      performCollisions plr_num
         (collidePlayerWithEnemies (players !! plr_num) enemies)
       ) numOfAlivePlayers
     ) game
   where
     players = gamePlayers game
     numOfAlivePlayers =
-      filter 
-      (\plr_num -> not (playerIsDead (players !! plr_num))) 
+      filter
+      (\plr_num -> not (playerIsDead (players !! plr_num)))
       (take (length players) [0..])
     enemies = levelObjs (gameCurLevel game)
 
@@ -369,11 +390,6 @@ collidePlayerWithEnemies player objects =
 colWithObj :: Kind -> Int -> ([CollisionType], [CollisionType])
 colWithObj Gumba n = ([Die], [DeleteObj n])
 colWithObj Turtle n = ([Die], [DeleteObj n, Spawn Shell (0, 0)])
+colWithObj Mushroom n = ([DeleteObj n, ToBig], [DeleteObj n, ToBig])
+colWithObj Flagpole _ = ([MoveToNextLevel], [MoveToNextLevel])
 colWithObj _ _ = ([], [])
-
--- | Remove the item from the list.
-removeByIndex :: Int -> [a] -> [a]
-removeByIndex _ [] = []
-removeByIndex i (h:t)
-  | i == 0 = t
-  | otherwise = h : removeByIndex (i - 1) t

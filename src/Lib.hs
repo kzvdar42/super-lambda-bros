@@ -11,7 +11,8 @@ import Graphics.Gloss
 -- | Tile of level.
 data Tile
   = Ground
-  | Brick
+  | TopBrick
+  | MiddleBrick
   | BrickCoinBlock
   | BrickStarBlock
   | BonusBlockCoin
@@ -50,7 +51,7 @@ data Movement
 -- | Player state.
 data Player = Player
   { playerObj    :: MovingObject -- ^ MovingObject of a player
-  , playerHp     :: Int          -- ^ Player Hp
+  , playerHp     :: Integer      -- ^ Player Hp
   , playerIsDead :: Bool         -- ^ Is player dead?
   }
 
@@ -59,7 +60,7 @@ data Game = Game
     { gameLevels     :: [Level]        -- ^ Levels
     , gameCurLevel   :: Level          -- ^ Current level
     , gamePlayers    :: [Player]       -- ^ Player
-    , gameCoins      :: Int            -- ^ Number of coins
+    , gameCoins      :: Integer            -- ^ Number of coins
     , gameLvlNum     :: Int            -- ^ Current level number
     , gameNextLvlNum :: Maybe Int      -- ^ Next level number
     , pressedKeys    :: S.Set Movement -- ^ List of current pressed keys
@@ -102,7 +103,7 @@ data Kind
   | Flagpole
 
 -- | Types of collisions.
-data CollisionType = DeleteTile | DeleteObj Int | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die
+data CollisionType = DeleteTile | DeleteObj Int | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die | ToBig | MoveToNextLevel
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -178,7 +179,8 @@ tileFrictionRate _ = 0.015
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
-typeOfCollision Brick = [DeleteTile, Bounce]
+typeOfCollision TopBrick = [DeleteTile, Bounce]
+typeOfCollision MiddleBrick = [DeleteTile, Bounce]
 typeOfCollision BrickCoinBlock
   = [CollectCoin, Change BonusBlockEmpty, Bounce]
 typeOfCollision BrickStarBlock
@@ -225,7 +227,6 @@ initGame levels = Game
     , gamePlayers =
       [ initPlayer 0 (levelInitPoint currLevel)
       , initPlayer 1 (levelInitPoint currLevel)
-      , initPlayer 3 (levelInitPoint currLevel)
       ]
     , gameCoins = 0
     , gameLvlNum = lvlNum
@@ -241,7 +242,7 @@ initPlayer :: Integer -> Coord -> Player
 initPlayer n coord = createPlayer (SmallPlayer n) coord 3 False
 
 -- | Create the player.
-createPlayer :: Kind -> Coord -> Int -> Bool -> Player
+createPlayer :: Kind -> Coord -> Integer -> Bool -> Player
 createPlayer kind coord hp isDead = Player
   { playerObj =
       MovingObject kind (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
@@ -284,6 +285,13 @@ updateElemInList [] _ _ = []
 updateElemInList (_:xs) newElem 0 = newElem : xs
 updateElemInList (x:xs) newElem n = x
   : updateElemInList xs newElem (n - 1)
+
+-- | Remove the item from the list.
+removeFromList :: Int -> [a] -> [a]
+removeFromList _ [] = []
+removeFromList i (h:t)
+  | i == 0 = t
+  | otherwise = h : removeFromList (i - 1) t
 
 -- | Translate position to the coords for the map.
 mapPosToCoord :: Position -> Coord

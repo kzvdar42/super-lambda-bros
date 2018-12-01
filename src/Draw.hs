@@ -52,11 +52,13 @@ drawGame assets res game =
     composedRelative = alignWorldToX ((*) gameScale (centerOfScreen alivePlayers))
       (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
-    composedRelative
-    <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
-      (centerPictureY mapHeight gameScale debug)
-    <> translate ((fst fres - coordOffset - charSize * 10) / 2)
-      ((snd fres - coordOffset) / 2) gameInfo
+    case gameNextLvlNum game of
+      Nothing -> composedRelative
+        <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
+          (centerPictureY mapHeight gameScale debug)
+        <> translate ((fst fres - coordOffset - charSize * 10) / 2)
+          ((snd fres - coordOffset) / 2) gameInfo
+      Just _  -> scale (textScale * 2) (textScale * 2) (text "You win!")
 
 -- | Draw the level.
 drawLvl :: Assets -> LevelMap -> Picture
@@ -96,7 +98,8 @@ drawSprite assets (Sprite _ (pos_x, pos_y) animC _ _)
 
 -- | Draw one tile.
 drawTile :: Assets -> Tile -> Picture
-drawTile assets Brick = getAssetFromList (envSprites assets) 0
+drawTile assets TopBrick = getAssetFromList (envSprites assets) 0
+drawTile assets MiddleBrick = getAssetFromList (envSprites assets) 10
 drawTile assets BrickCoinBlock = getAssetFromList (envSprites assets) 0
 drawTile assets BrickStarBlock = getAssetFromList (envSprites assets) 0
 drawTile assets Ground = getAssetFromList (envSprites assets) 1
@@ -114,14 +117,14 @@ drawTile _ Empty = blank
 
 -- | Draw the object kind.
 drawKind :: Assets -> Kind -> Float -> Int -> Picture
-drawKind assets (SmallPlayer 0) animC animD = drawSmallPlayer (marioSprites assets) animC animD
-drawKind assets (BigPlayer 0) animC animD   = drawSmallPlayer (marioSpritesB assets) animC animD
-drawKind assets (SmallPlayer 1) animC animD = drawSmallPlayer (luigiSprites assets) animC animD
-drawKind assets (BigPlayer 1) animC animD   = drawSmallPlayer (luigiSpritesB assets) animC animD
-drawKind assets (SmallPlayer 2) animC animD = drawSmallPlayer (francescoSprites assets) animC animD
-drawKind assets (BigPlayer 2) animC animD   = drawSmallPlayer (francescoSpritesB assets) animC animD
-drawKind assets (SmallPlayer _) animC animD = drawSmallPlayer [] animC animD
-drawKind assets (BigPlayer _) animC animD   = drawSmallPlayer [] animC animD
+drawKind assets (SmallPlayer 0) animC animD = drawPlayer (marioSprites assets) animC animD
+drawKind assets (BigPlayer 0) animC animD   = drawPlayer (marioSpritesB assets) animC animD
+drawKind assets (SmallPlayer 1) animC animD = drawPlayer (luigiSprites assets) animC animD
+drawKind assets (BigPlayer 1) animC animD   = drawPlayer (luigiSpritesB assets) animC animD
+drawKind assets (SmallPlayer 2) animC animD = drawPlayer (francescoSprites assets) animC animD
+drawKind assets (BigPlayer 2) animC animD   = drawPlayer (francescoSpritesB assets) animC animD
+drawKind _      (SmallPlayer _) animC animD = drawPlayer [] animC animD
+drawKind _      (BigPlayer _) animC animD   = drawPlayer [] animC animD
 drawKind assets Gumba animC _ = getAssetFromList (enemySprites assets) (0 + ((round animC) `mod` 2))
 drawKind assets Turtle animC _ = getAssetFromList (enemySprites assets) (2 + ((round animC) `mod` 2))
 drawKind assets Mushroom _ _ = getAssetFromList (enemySprites assets) 4
@@ -130,17 +133,17 @@ drawKind assets Shell _ _ = getAssetFromList (enemySprites assets) 6
 drawKind assets HpMushroom _ _ = getAssetFromList (enemySprites assets) 7
 drawKind assets Flagpole _ _ = getAssetFromList (enemySprites assets) 8
 
-
-drawSmallPlayer :: [Picture] -> Float -> Int -> Picture
-drawSmallPlayer mSprites animC 1 = getAssetFromList mSprites (2 + ((round animC) `mod` 4))
-drawSmallPlayer mSprites _ 0 = getAssetFromList mSprites 6
-drawSmallPlayer mSprites _ 5 = getAssetFromList mSprites 13
-drawSmallPlayer mSprites animC 6 = getAssetFromList mSprites (9 + ((round animC) `mod` 4))
-drawSmallPlayer mSprites _ 2 = getAssetFromList mSprites 0
-drawSmallPlayer mSprites _ 7 = getAssetFromList mSprites 7
-drawSmallPlayer mSprites _ 3 = getAssetFromList mSprites 1
-drawSmallPlayer mSprites _ 8 = getAssetFromList mSprites 8
-drawSmallPlayer mSprites _ _ = getAssetFromList mSprites 0
+-- | Draw the player animation.
+drawPlayer :: [Picture] -> Float -> Int -> Picture
+drawPlayer mSprites animC 1 = getAssetFromList mSprites (2 + ((round animC) `mod` 4))
+drawPlayer mSprites _ 0 = getAssetFromList mSprites 6
+drawPlayer mSprites _ 5 = getAssetFromList mSprites 13
+drawPlayer mSprites animC 6 = getAssetFromList mSprites (9 + ((round animC) `mod` 4))
+drawPlayer mSprites _ 2 = getAssetFromList mSprites 0
+drawPlayer mSprites _ 7 = getAssetFromList mSprites 7
+drawPlayer mSprites _ 3 = getAssetFromList mSprites 1
+drawPlayer mSprites _ 8 = getAssetFromList mSprites 8
+drawPlayer mSprites _ _ = getAssetFromList mSprites 0
 
 drawCoinAnim :: [Picture] -> Float -> Picture
 drawCoinAnim mSprites animC = getAssetFromList mSprites (0 + ((round animC) `mod` 14))
