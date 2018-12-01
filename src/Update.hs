@@ -109,7 +109,8 @@ applyFriction :: LevelMap -> MovingObject -> MovingObject
 applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
   = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel animC animD
   where
-    allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
+    (size_x, _) = getSize kind
+    allFrictions = applyToParts (+) 0 takeFriction lvl (size_x, minObjSize) pos
     takeFriction level (tile_x, tile_y) =
       case takeElemFromMatrix level (mapPosToCoord (tile_x, tile_y - thresh)) of
         Nothing -> tileFrictionRate Empty
