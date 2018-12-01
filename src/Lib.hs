@@ -106,10 +106,15 @@ data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectC
 
 -- | Container with textures for objects.
 data Assets = Assets
-  { marioSprites :: [Picture]
-  , envSprites   :: [Picture]
-  , enemySprites :: [Picture]
-  , animSprites  :: [Picture]
+  { marioSprites      :: [Picture]
+  , luigiSprites      :: [Picture]
+  , francescoSprites  :: [Picture]
+  , marioSpritesB     :: [Picture]
+  , luigiSpritesB     :: [Picture]
+  , francescoSpritesB :: [Picture]
+  , envSprites        :: [Picture]
+  , enemySprites      :: [Picture]
+  , animSprites       :: [Picture]
   }
 
 -- ------------------------ Game scale ------------------------ --
@@ -239,7 +244,7 @@ initPlayer coord = createPlayer coord 3 False
 createPlayer :: Coord -> Int -> Bool -> Player
 createPlayer coord hp isDead = Player
   { playerObj =
-      MovingObject SmallPlayer (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
+      MovingObject BigPlayer (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
   , playerHp = hp
   , playerIsDead = isDead
   }
