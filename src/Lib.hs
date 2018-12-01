@@ -102,7 +102,7 @@ data Kind
   | Flagpole
 
 -- | Types of collisions.
-data CollisionType = Delete | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die
+data CollisionType = DeleteTile | DeleteObj Int | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -129,7 +129,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale.
 gameScaleFactor :: Float
-gameScaleFactor = 1
+gameScaleFactor = 1/2
 
 -- | Speed of animation.
 animationScale :: Float
@@ -173,7 +173,7 @@ tileFrictionRate _ = 0.015
 
 -- | Type of collision with player.
 typeOfCollision :: Tile -> [CollisionType]
-typeOfCollision Brick = [Delete, Bounce]
+typeOfCollision Brick = [DeleteTile, Bounce]
 typeOfCollision BrickCoinBlock
   = [CollectCoin, Change BonusBlockEmpty, Bounce]
 typeOfCollision BrickStarBlock
@@ -219,7 +219,7 @@ initGame levels = Game
     , gameCurLevel = currLevel
     , gamePlayers =
       [ initPlayer (levelInitPoint currLevel)
-      , initPlayer (levelInitPoint currLevel)
+      , createPlayer BigPlayer (levelInitPoint currLevel) 3 False
       ]
     , gameCoins = 0
     , gameLvlNum = lvlNum
@@ -232,13 +232,13 @@ initGame levels = Game
 
 -- | Initial state of the player.
 initPlayer :: Coord -> Player
-initPlayer coord = createPlayer coord 3 False
+initPlayer coord = createPlayer SmallPlayer coord 3 False
 
 -- | Create the player.
-createPlayer :: Coord -> Int -> Bool -> Player
-createPlayer coord hp isDead = Player
+createPlayer :: Kind -> Coord -> Int -> Bool -> Player
+createPlayer kind coord hp isDead = Player
   { playerObj =
-      MovingObject SmallPlayer (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
+      MovingObject kind (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
   , playerHp = hp
   , playerIsDead = isDead
   }
