@@ -75,11 +75,17 @@ run = do
   screenResolution <- getScreenSize
   print $ "Screen Resolution: " ++ (show screenResolution)
   spritesMario <- sequence $ map loadBMP (map (\x -> "assets/mario/mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesLuigi <- sequence $ map loadBMP (map (\x -> "assets/mario/luigi_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesFrancesco <- sequence $ map loadBMP (map (\x -> "assets/mario/francesco_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesMarioB <- sequence $ map loadBMP (map (\x -> "assets/mario/big_mario_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesLuigiB <- sequence $ map loadBMP (map (\x -> "assets/mario/big_luigi_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+  spritesFrancescoB <- sequence $ map loadBMP (map (\x -> "assets/mario/big_francesco_" ++ x ++ ".bmp") (map show [1..14 :: Integer]))
+
   spritesEnv <- sequence $ map loadBMP (map (\x -> "assets/environment/tile_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
   spritesEnemy <- sequence $ map loadBMP (map (\x -> "assets/enemies/enemy_" ++ x ++ ".bmp") (map show [1..9 :: Integer]))
   spritesAnim <- sequence $ map loadBMP (map (\x -> "assets/sprites/sprite_" ++ x ++ ".bmp") (map show [1..7 :: Integer]))
 
   maps <- (readMaps getTile ["assets/maps/map_1.txt"])
 
-  let assets = Assets spritesMario spritesEnv spritesEnemy spritesAnim
+  let assets = Assets spritesMario spritesLuigi spritesFrancesco spritesMarioB spritesLuigiB spritesFrancescoB spritesEnv spritesEnemy spritesAnim
   play FullScreen (makeColorI 92 148 252 255) 60 (initGame maps) (drawGame assets screenResolution) handleGame (updateGame screenResolution)

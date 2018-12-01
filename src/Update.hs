@@ -11,7 +11,7 @@ import Lib
 -- And if is, run the `performCollisions`.
 checkCollision :: Int -> Game -> Game
 checkCollision playerNum game =
-  collideAllMovingObjects $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
+  collideWithObjects $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
     Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
       Nothing -> if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
       Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
@@ -32,7 +32,7 @@ performCollisions :: Int -> [(CollisionType, Coord)] -> Game -> Game
 performCollisions _ [] game = game
 performCollisions playerNum (c:cs) game =
   performCollisions playerNum cs $ case c of
-    (Delete, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
+    (DeleteTile, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
     (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
       let
         updlvl = (gameCurLevel game)
@@ -55,8 +55,16 @@ performCollisions playerNum (c:cs) game =
       { gamePlayers =
         updateElemInList
         (gamePlayers game)
-        (createPlayer (levelInitPoint initlvl) ((playerHp curPlayer) - 1) True)
+        (curPlayer 
+        { playerObj = resetObj (playerObj curPlayer) (levelInitPoint initlvl)
+        , playerHp = (playerHp curPlayer) - 1
+        , playerIsDead = True
+        })
         (fromIntegral playerNum)
+      }
+    (DeleteObj objNum, _) -> game 
+      { gameCurLevel =
+          (gameCurLevel game) {levelObjs = removeByIndex objNum objects}
       }
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
@@ -73,11 +81,16 @@ resetLevel :: Game -> Game
 resetLevel game = game
   { gameCurLevel = initlvl
   , gamePlayers = map
-      (\p -> createPlayer (levelInitPoint initlvl) (playerHp p) (playerHp p <= 0))
+      (\p -> p
+      { playerObj = resetObj (playerObj p) (levelInitPoint initlvl)
+      , playerIsDead = playerHp p <= 0
+      })
       (gamePlayers game)
   }
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
+resetObj (MovingObject k _ v a anC anD) new_coord = 
+  MovingObject k (mapCoordToPos new_coord) (0, 0) (0, 0) anC anD
 
 
 addCoinToLevel :: Coord -> Game -> Game
@@ -109,7 +122,8 @@ applyFriction :: LevelMap -> MovingObject -> MovingObject
 applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
   = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel animC animD
   where
-    allFrictions = applyToParts (+) 0 takeFriction lvl (getSize kind) pos
+    (size_x, _) = getSize kind
+    allFrictions = applyToParts (+) 0 takeFriction lvl (size_x, minObjSize) pos
     takeFriction level (tile_x, tile_y) =
       case takeElemFromMatrix level (mapPosToCoord (tile_x, tile_y - thresh)) of
         Nothing -> tileFrictionRate Empty
@@ -195,6 +209,24 @@ tryMove dt level object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
 
+-- | Tries to move object in limits of screen.
+tryMoveInScreen 
+  :: Float        -- ^ Time from last frame
+  -> ScreenSize   -- ^ Size of the screen
+  -> LevelMap     -- ^ Current map
+  -> Float        -- ^ Center of screen
+  -> MovingObject -- ^ Player to move
+  -> MovingObject
+tryMoveInScreen dt res@(res_x, _) lvlMap centerOfScreenPos object
+  | new_x < centerOfScreenPos - boundary || new_x > centerOfScreenPos + boundary =
+    tryMove dt lvlMap (MovingObject k pos (0, vel_y) (0, accel_y) anC anD)
+  | otherwise = upd_object
+  where
+    (MovingObject k pos (_, vel_y) (_, accel_y) anC anD) = object
+    upd_object@(MovingObject _ (new_x, _) _ _ _ _) = tryMove dt lvlMap object
+    boundary = fromIntegral res_x / (2 * gameScale) - tileSize/2
+    gameScale = getGameScale res lvlMap
+
 -- | Checks if the simple `MovingObject` can move at this position.
 canMove :: LevelMap -> Position -> Bool
 canMove lvl (pos_x, pos_y) =
@@ -256,18 +288,6 @@ updateGame res dt game =
     upd_objects = updateObjects res dt lvlMap screen_pos (levelObjs curlvl)
     upd_sprites = updateSprites dt (levelSprites curlvl)
 
-
-tryMoveInScreen :: Float -> ScreenSize -> LevelMap -> Float -> MovingObject -> MovingObject
-tryMoveInScreen dt res@(res_x, _) lvlMap centerOfScreenPos object
-  | new_x < centerOfScreenPos - boundary || new_x > centerOfScreenPos + boundary =
-    tryMove dt lvlMap (MovingObject k pos (0, vel_y) (0, accel_y) anC anD)
-  | otherwise = upd_object
-  where
-    (MovingObject k pos (_, vel_y) (_, accel_y) anC anD) = object
-    upd_object@(MovingObject _ (new_x, _) _ _ _ _) = tryMove dt lvlMap object
-    boundary = fromIntegral res_x / (2 * gameScale) - tileSize/2
-    gameScale = getGameScale res lvlMap
-
 -- | Update player state.
 updatePlayer :: ScreenSize -> Float -> Float -> LevelMap -> [Movement] -> Int -> Player -> Player
 updatePlayer res centerOfScreenPos dt lvlMap movements playerNum player = player
@@ -281,20 +301,23 @@ updatePlayer res centerOfScreenPos dt lvlMap movements playerNum player = player
   }
 
 -- | Update objects due the current position of player.
+-- If the object is falled down, delete it.
 -- If the object is far from the screen, doesn't update it.
 updateObjects :: ScreenSize -> Float -> LevelMap -> Float -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvlMap centerOfScreenPos (obj:objs)
+  | pos_y < - snd (getSize kind) = updateObjects res dt lvlMap centerOfScreenPos objs
   | pos_x >= leftBoundary && pos_x <= rightBoundary
     = ((updateAnimation dt lvlMap . tryMove dt lvlMap . applyGravityAsVel dt) obj)
       : updateObjects res dt lvlMap centerOfScreenPos objs
   | otherwise = obj : updateObjects res dt lvlMap centerOfScreenPos objs
   where
-    (MovingObject _ (pos_x, _) _ _ _ _) = obj
+    (MovingObject kind (pos_x, pos_y) _ _ _ _) = obj
     leftBoundary = centerOfScreenPos - (fromIntegral res_x) / (2 / 3 * gameScale)
     rightBoundary = centerOfScreenPos + (fromIntegral res_x) / gameScale
     gameScale = getGameScale res lvlMap
 
+-- | Update sprites.
 updateSprites :: Float -> [Sprite] -> [Sprite]
 updateSprites _ [] = []
 updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
@@ -303,68 +326,54 @@ updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
     updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
     others = (updateSprites dt sp)
 
-collideAllMovingObjects :: Game -> Game
-collideAllMovingObjects game =
-  game { gamePlayers = updatedPlayers, gameCurLevel = updatedLevel }
+-- | Collide all objects with players.
+collideWithObjects :: Game -> Game
+collideWithObjects game =
+  foldr (.) id 
+    (map (\plr_num ->
+      performCollisions plr_num 
+        (collidePlayerWithEnemies (players !! plr_num) enemies)
+      ) numOfAlivePlayers
+    ) game
   where
-    curLvl = gameCurLevel game
-    updatedPlayers = zipWith (\o n -> o { playerObj = n }) (gamePlayers game) updatedPlayerObjs
-    updatedLevel = curLvl { levelObjs = updatedLevelObjs }
-    enemies = levelObjs curLvl
-    playerObjs = map playerObj (gamePlayers game)
-    (updatedPlayerObjs, updatedLevelObjs) = collidePlayersAndEnemies playerObjs enemies
+    players = gamePlayers game
+    numOfAlivePlayers =
+      filter 
+      (\plr_num -> not (playerIsDead (players !! plr_num))) 
+      (take (length players) [0..])
+    enemies = levelObjs (gameCurLevel game)
 
-collidePlayersAndEnemies
-  :: [MovingObject] -- ^ List of players
-  -> [MovingObject] -- ^ List of enemies
-  -> ([MovingObject], [MovingObject])
-collidePlayersAndEnemies players enemies = (updatedPlayers, updatedEnemies)
+-- | Collide player with enemies.
+collidePlayerWithEnemies :: Player -> [MovingObject] -> [(CollisionType, Coord)]
+collidePlayerWithEnemies player objects =
+  concat (map (\(o, n) -> isInPlayer o n) (zip objects [0..]))
   where
-    (updatedPlayers, halfUpdatedEnemies) = collideEachWithClosest players enemies
-    (updatedEnemies, _) = collideEachWithClosest halfUpdatedEnemies halfUpdatedEnemies
-
-collideEachWithClosest
-  :: [MovingObject] -- ^ List of objects to perform collision of
-  -> [MovingObject] -- ^ List of objects to perform collision with closest of them
-  -> ([MovingObject], [MovingObject])
-collideEachWithClosest []        []     = ([], [])
-collideEachWithClosest toCollide []     = (toCollide, [])
-collideEachWithClosest []        others = ([], others)
-collideEachWithClosest toCollide others =
-  ( firstCollided : nextToCollide
-  , secondCollided : nextOthers
-  )
-  where
-    (nextToCollide, nextOthers) = collideEachWithClosest othersToCollide shorterOthers
-    (collideIt : othersToCollide) = toCollide
-    (firstCollided, secondCollided) = performCollision collideIt (others !! closestIndex)
-    closestIndex = findClosestIndex collideIt others
-    shorterOthers = removeByIndex closestIndex others
-
-    findClosestIndex :: MovingObject -> [MovingObject] -> Int
-    findClosestIndex _ [] = error "Could not find index in an empty array"
-    findClosestIndex obj (h:t) = findBestElIndex (distance obj) 1 0 (distance obj h) t
+    (MovingObject p_kind (p_pos_x, p_pos_y) _ _ _ _) = playerObj player
+    (p_size_x, p_size_y) = getSize p_kind
+    isInPlayer (MovingObject kind pos@(pos_x, pos_y) _ _ _ _) n
+      | inPlayer && (p_pos_y >= pos_y + thresh) = addPos (snd $ colWithObj kind n)
+      | inPlayer = addPos (fst $ colWithObj kind n)
+      | otherwise = []
       where
-        distance mo1 mo2 = sqrt ((x1 - x2) ^^ 2 + (y1 - y2) ^^ 2)
-          where
-            (MovingObject _ (x1, y1) _ _ _ _) = mo1
-            (MovingObject _ (x2, y2) _ _ _ _) = mo2
+        addPos = map (\c -> (c, coord))
+        coord = mapPosToCoord pos
+        (size_x, size_y) = getSize kind
+        max_x_l = max p_pos_x pos_x
+        inPlayer =
+          max_x_l >= (min p_pos_x pos_x)
+          && max_x_l <= (min (p_pos_x + p_size_x) (pos_x + size_x))
+          && p_pos_y >= pos_y
+          && p_pos_y <= pos_y + size_y
 
-        findBestElIndex _ _ bestInd _ [] = bestInd
-        findBestElIndex f curInd bestInd bestEl (h':t') =
-          findBestElIndex f (curInd + 1) betterInd betterEl t'
-          where
-            curEl = f h'
-            (betterInd, betterEl) =
-              if bestEl < curEl
-                then (curInd, curEl)
-                else (bestInd, bestEl)
+-- | Type of collision with player.
+colWithObj :: Kind -> Int -> ([CollisionType], [CollisionType])
+colWithObj Gumba n = ([Die], [DeleteObj n])
+colWithObj Turtle n = ([Die], [DeleteObj n, Spawn Shell (0, 0)])
+colWithObj _ _ = ([], [])
 
-    removeByIndex :: Int -> [a] -> [a]
-    removeByIndex _ [] = []
-    removeByIndex i (h:t)
-      | i == 0 = t
-      | otherwise = h : removeByIndex (i - 1) t
-
-performCollision :: MovingObject -> MovingObject -> (MovingObject, MovingObject)
-performCollision fstObj secObj = (fstObj, secObj) -- TODO
+-- | Remove the item from the list.
+removeByIndex :: Int -> [a] -> [a]
+removeByIndex _ [] = []
+removeByIndex i (h:t)
+  | i == 0 = t
+  | otherwise = h : removeByIndex (i - 1) t
