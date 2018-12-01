@@ -281,16 +281,18 @@ updatePlayer res centerOfScreenPos dt lvlMap movements playerNum player = player
   }
 
 -- | Update objects due the current position of player.
+-- If the object is falled down, delete it.
 -- If the object is far from the screen, doesn't update it.
 updateObjects :: ScreenSize -> Float -> LevelMap -> Float -> [MovingObject] -> [MovingObject]
 updateObjects _ _ _ _ [] = []
 updateObjects res@(res_x, _) dt lvlMap centerOfScreenPos (obj:objs)
+  | pos_y < - snd (getSize kind) = updateObjects res dt lvlMap centerOfScreenPos objs
   | pos_x >= leftBoundary && pos_x <= rightBoundary
     = ((updateAnimation dt lvlMap . tryMove dt lvlMap . applyGravityAsVel dt) obj)
       : updateObjects res dt lvlMap centerOfScreenPos objs
   | otherwise = obj : updateObjects res dt lvlMap centerOfScreenPos objs
   where
-    (MovingObject _ (pos_x, _) _ _ _ _) = obj
+    (MovingObject kind (pos_x, pos_y) _ _ _ _) = obj
     leftBoundary = centerOfScreenPos - (fromIntegral res_x) / (2 / 3 * gameScale)
     rightBoundary = centerOfScreenPos + (fromIntegral res_x) / gameScale
     gameScale = getGameScale res lvlMap
