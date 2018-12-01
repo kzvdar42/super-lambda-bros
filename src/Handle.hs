@@ -21,6 +21,7 @@ handleGame (G.EventKey (G.Char 'u') keyState _ _) = handleKeyPress keyState P3_U
 handleGame (G.EventKey (G.Char 'h') keyState _ _) = handleKeyPress keyState P3_L_BUTTON
 handleGame (G.EventKey (G.Char 'j') keyState _ _) = handleKeyPress keyState P3_D_BUTTON
 handleGame (G.EventKey (G.Char 'k') keyState _ _) = handleKeyPress keyState P3_R_BUTTON
+handleGame (G.EventKey (G.SpecialKey G.KeyEnter) keyState _ _) = handleKeyPress keyState ENTER_BUTTON
 handleGame _ = id
 
 handleKeyPress :: G.KeyState -> Movement -> Game -> Game

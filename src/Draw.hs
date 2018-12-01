@@ -58,7 +58,17 @@ drawGame assets res game =
           (centerPictureY mapHeight gameScale debug)
         <> translate ((fst fres - coordOffset - charSize * 10) / 2)
           ((snd fres - coordOffset) / 2) gameInfo
-      Just _  -> scale (textScale * 2) (textScale * 2) (text "You win!")
+      Just (-1) -> translate (-charSize * 14) 0 (
+        (scale (textScale * 2) (textScale * 2) (text "Choose the amount of players"))
+        ) 
+        <> translate 0 (- charSize * 4) (
+          scale (textScale * 2) (textScale * 2) (
+            (text . show) (length (gamePlayers game))
+          )
+        )
+      Just _  -> translate (-charSize * 4) 0 (
+        scale (textScale * 2) (textScale * 2) (text "You win!")
+        )
 
 -- | Draw the level.
 drawLvl :: Assets -> LevelMap -> Picture

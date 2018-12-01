@@ -276,6 +276,25 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, _) ani
       | vel_x < -0.6 * tileSize = 1
       | otherwise = if animD >= 5 then 5 else 0
 
+-- | Handle the start screen of game.
+handleStartScreen :: Game -> Game
+handleStartScreen game
+  | elem ENTER_BUTTON movements = 
+    game {gameNextLvlNum = Just (gameLvlNum game)}
+  | elem P1_U_BUTTON movements = 
+    game {gamePlayers = makePlayers (numOfPlayers + 1) 0 }
+  | elem P1_D_BUTTON movements && numOfPlayers > 1 = 
+    game {gamePlayers = makePlayers (numOfPlayers - 1) 0 }
+  | otherwise = game
+  where
+    movements = S.toList (pressedKeys game)
+    numOfPlayers = length (gamePlayers game)
+    initPos = (levelInitPoint (gameCurLevel game))
+    makePlayers 0 _ = []
+    makePlayers n cur_n 
+      = initPlayer cur_n initPos
+      : makePlayers (n - 1) (cur_n + 1)
+
 -- | Physics of the game.
 updateGame :: ScreenSize -> Float -> Game -> Game
 updateGame res dt game =
@@ -284,6 +303,7 @@ updateGame res dt game =
       if length alivePlayers == 0
         then resetLevel game
         else foldr (.) id (map checkCollision (take (length players) [0..])) upd_game
+    Just (-1) -> handleStartScreen game
     Just nextLevel -> case takeElemFromList (gameLevels game) (fromIntegral nextLevel) of
       Nothing -> game
       Just nextlvl -> resetLevel $ game 

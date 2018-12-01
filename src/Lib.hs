@@ -46,6 +46,7 @@ data Movement
   | P2_U_BUTTON | P2_L_BUTTON | P2_D_BUTTON | P2_R_BUTTON
   -- | Third player.
   | P3_U_BUTTON | P3_L_BUTTON | P3_D_BUTTON | P3_R_BUTTON
+  | ENTER_BUTTON
   deriving (Eq, Ord, Show)
 
 -- | Player state.
@@ -224,13 +225,10 @@ initGame :: [Level] -> Game
 initGame levels = Game
     { gameLevels = levels
     , gameCurLevel = currLevel
-    , gamePlayers =
-      [ initPlayer 0 (levelInitPoint currLevel)
-      , initPlayer 1 (levelInitPoint currLevel)
-      ]
+    , gamePlayers = [initPlayer 0 (levelInitPoint currLevel)]
     , gameCoins = 0
     , gameLvlNum = lvlNum
-    , gameNextLvlNum = Nothing
+    , gameNextLvlNum = Just (-1)
     , pressedKeys = S.empty
     }
   where
