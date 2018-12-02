@@ -162,9 +162,9 @@ step :: Vector2
 step = (0.3 * tileSize, 0.6 * g)
 
 -- | Thresh of collision distance.
--- If collisions doesn't work play with it.
+-- If the collisions doesn't work, play with it.
 thresh :: Float
-thresh = 0.1 * tileSize
+thresh = 0.10 * tileSize
 
 -- | Is this object a player?
 isPlayer :: Kind -> Bool

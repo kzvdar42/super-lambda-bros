@@ -18,15 +18,17 @@ checkCollisions game =
 -- And if is, run the `performCollisions`.
 checkCollision :: Int -> Game -> Game
 checkCollision playerNum game =
-  collideWithObjects $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
-    Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
-      Nothing -> if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
-      Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (collisionWithTile tile kind)) game
-    Just tile -> performCollisions playerNum (map (\c -> (c, (x_close, y))) (collisionWithTile tile kind)) game
+  collideWithObjects $ if vel_y > 0 then
+    case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
+      Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
+        Nothing -> if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
+        Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (collisionWithTile tile kind)) game
+      Just tile -> performCollisions playerNum (map (\c -> (c, (x_close, y))) (collisionWithTile tile kind)) game
+  else if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
   where
     curlvl = gameCurLevel game
-    (MovingObject kind (pos_x, pos_y) _ _ _ _) = playerObj ((gamePlayers game) !! playerNum)
-    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) + thresh)
+    (MovingObject kind (pos_x, pos_y) (_, vel_y) _ _ _) = playerObj ((gamePlayers game) !! playerNum)
+    (x, y) = mapPosToCoord (pos_x, pos_y + (snd (getSize kind)) - thresh)
     (x_r, _) = mapPosToCoord (pos_x + (fst (getSize kind)), pos_y)
     (x_close, x_far) =
       if pos_x - (fromIntegral x) * tileSize < (fromIntegral x_r) * tileSize - pos_x
@@ -204,35 +206,34 @@ performActions playerNum lvl ms = foldr (.) id (map (performAction playerNum lvl
 
 -- | Apply single action on the player.
 performAction :: Int -> LevelMap -> Movement -> MovingObject -> MovingObject
-performAction 0 lvl P1_U_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 0 _   P1_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 0 lvl P1_U_BUTTON player = tryJump lvl player (0, snd step)
+performAction 0 _   P1_L_BUTTON player = changeSpeed player (- fst step, 0)
 performAction 0 _   P1_D_BUTTON player = player
-performAction 0 _   P1_R_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction 1 lvl P2_U_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 1 _   P2_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 0 _   P1_R_BUTTON player = changeSpeed player (fst step, 0)
+performAction 1 lvl P2_U_BUTTON player = tryJump lvl player (0, snd step)
+performAction 1 _   P2_L_BUTTON player = changeSpeed player (- fst step, 0)
 performAction 1 _   P2_D_BUTTON player = player
-performAction 1 _   P2_R_BUTTON player = changeSpeed player (fst step, 0.0)
-performAction 2 lvl P3_U_BUTTON player = tryJump lvl player (0.0, snd step)
-performAction 2 _   P3_L_BUTTON player = changeSpeed player (- fst step, 0.0)
+performAction 1 _   P2_R_BUTTON player = changeSpeed player (fst step, 0)
+performAction 2 lvl P3_U_BUTTON player = tryJump lvl player (0, snd step)
+performAction 2 _   P3_L_BUTTON player = changeSpeed player (- fst step, 0)
 performAction 2 _   P3_D_BUTTON player = player
-performAction 2 _   P3_R_BUTTON player = changeSpeed player (fst step, 0.0)
+performAction 2 _   P3_R_BUTTON player = changeSpeed player (fst step, 0)
 performAction _ _ _ player = player
 
 -- | Try to move the `MovingObject` by given offset.
 tryMove :: Float -> LevelMap -> MovingObject -> MovingObject
 tryMove dt level object
   | canMoveAtThisLvl (new_x, new_y) = new_obj
+  | canMoveAtThisLvl (new_x, old_y)
+    = move dt (updObj (vel_x, 0) (accel_x, 0))
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (updObj (0.0, vel_y) (0.0, accel_y))
+    = move dt (updObj (0, vel_y) (0, accel_y))
   | canMoveAtThisLvl (old_x, new_y)
     = move dt (updObj (-vel_x, vel_y) (-accel_x, accel_y))
-  | canMoveAtThisLvl (new_x, old_y)
-    = move dt (updObj (vel_x, 0.0) (accel_x, 0.0))
-  | isPlayer kind = updObj (0.0, 0.0) (0.0, 0.0)
-  | otherwise = updObj (-vel_x, vel_y) (-accel_x, accel_y)
+  | isPlayer kind = updObj (0, 0) (0, 0)
+  | otherwise = updObj (-vel_x, 0) (-accel_x, 0)
   where
-    (MovingObject kind (old_x, old_y)
-      (vel_x, vel_y) (accel_x, accel_y) _ _) = object
+    (MovingObject kind (old_x, old_y) (vel_x, vel_y) (accel_x, accel_y) _ _) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
     updObj vel accel = object {objectVel = vel, objectAccel = accel}
@@ -268,7 +269,7 @@ canMove lvl (pos_x, pos_y) =
     right_bot = takeElemFromMatrix lvl (x_r, y)
     right_top = takeElemFromMatrix lvl (x_r, y_r)
     (x, y) = mapPosToCoord (pos_x + thresh, pos_y)
-    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize - thresh, pos_y + minObjSize)
+    (x_r, y_r) = mapPosToCoord (pos_x + minObjSize - thresh, pos_y + minObjSize - thresh * 3) -- FIXME: Generalize `thresh` or redo `tryMove`
 
 -- | Update the animation state of object.
 updateAnimation :: Float -> LevelMap -> MovingObject -> MovingObject
@@ -292,8 +293,8 @@ updateAnimation dt lvlMap (MovingObject kind pos vel@(vel_x, _) accel@(_, _) ani
 -- | Handle the start screen of game.
 handleStartScreen :: Game -> Game
 handleStartScreen game
-  | elem ENTER_BUTTON movements = 
-    game {gameNextLvlNum = Just (gameLvlNum game)}
+  | elem ENTER_BUTTON movements =
+    game {gameNextLvlNum = Nothing}
   | elem P1_U_BUTTON movements && numOfPlayers < 3 = 
     game {gamePlayers = makePlayers (numOfPlayers + 1) 0 }
   | elem P1_D_BUTTON movements && numOfPlayers > 1 = 
