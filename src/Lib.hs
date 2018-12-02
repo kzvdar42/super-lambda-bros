@@ -11,21 +11,12 @@ import Graphics.Gloss
 -- | Tile of level.
 data Tile
   = Ground
-  | TopBrick
-  | MiddleBrick
-  | BrickCoinBlock
-  | BrickStarBlock
-  | BonusBlockCoin
-  | BonusBlockPowerUp
-  | HiddenBlockLivesUp
-  | BonusBlockEmpty
-  | Empty
-  | PipeGreenTopLeft
-  | PipeGreenTopRight
-  | PipeGreenLeft
-  | PipeGreenRight
+  | TopBrick | MiddleBrick | BrickCoinBlock | BrickStarBlock
+  | BonusBlockCoin | BonusBlockPowerUp | HiddenBlockLivesUp | BonusBlockEmpty
+  | PipeGreenTopLeft | PipeGreenTopRight | PipeGreenLeft | PipeGreenRight
   | RomboBlock
   | Coin
+  | Empty
 
 -- | Map of the level.
 type LevelMap = [[Tile]]
@@ -61,7 +52,7 @@ data Game = Game
     { gameLevels     :: [Level]        -- ^ Levels
     , gameCurLevel   :: Level          -- ^ Current level
     , gamePlayers    :: [Player]       -- ^ Player
-    , gameCoins      :: Integer            -- ^ Number of coins
+    , gameCoins      :: Integer        -- ^ Number of coins
     , gameLvlNum     :: Int            -- ^ Current level number
     , gameNextLvlNum :: Maybe Int      -- ^ Next level number
     , pressedKeys    :: S.Set Movement -- ^ List of current pressed keys
@@ -77,10 +68,18 @@ type Acceleration = Vector2
 type Size = Vector2
 
 -- | Data type for the objects of the level.
-data MovingObject = MovingObject Kind Position Velocity Acceleration Float Int
+data MovingObject = MovingObject 
+  { objectKind  :: Kind         -- ^ Object kind
+  , objectPos   :: Position     -- ^ Object position
+  , objectVel   :: Velocity     -- ^ Object velocity
+  , objectAccel :: Acceleration -- ^ Object acceleration
+  , objectAnimC :: Float        -- ^ Object animation ???
+  , objectAnimD :: Int          -- ^ Object animation ???
+  }
 
 -- | Data type for the animation handling with short time-to-live sprites
-data Sprite = Sprite SpriteType Position Float Float [OnSpriteDestroy]
+data Sprite =
+  Sprite SpriteType Position Float Float [OnSpriteDestroy]
 
 -- | Type of sprite define how given sprite is rendered
 data SpriteType = CoinSprite
@@ -91,8 +90,8 @@ data OnSpriteDestroy = SelfDestroy
 -- | Kind of the MovingObject.
 data Kind
   -- Player
-  = BigPlayer Integer
-  | SmallPlayer Integer
+  = BigPlayer Int
+  | SmallPlayer Int
   -- Enemies
   | Gumba
   | Turtle
@@ -104,7 +103,17 @@ data Kind
   | Flagpole
 
 -- | Types of collisions.
-data CollisionType = DeleteTile | DeleteObj Int | Spawn Kind Coord | Change Tile | Bounce | CollectCoin | Die | ToBig | MoveToNextLevel
+data CollisionType
+  = DeleteTile
+  | DeleteObj Int
+  | SpawnObj Kind Coord
+  | Change Tile
+  | Bounce
+  | CollectCoin
+  | Die
+  | ToBig
+  | MoveToNextLevel
+  | AddHp
 
 -- | Container with textures for objects.
 data Assets = Assets
@@ -136,7 +145,7 @@ textScaleFactor = 0.008 * tileSize
 
 -- | Game scale.
 gameScaleFactor :: Float
-gameScaleFactor = 1/2
+gameScaleFactor = 1
 
 -- | Speed of animation.
 animationScale :: Float
@@ -179,21 +188,32 @@ tileFrictionRate Empty = 0.02
 tileFrictionRate _ = 0.015
 
 -- | Type of collision with player.
-typeOfCollision :: Tile -> [CollisionType]
-typeOfCollision TopBrick = [DeleteTile, Bounce]
-typeOfCollision MiddleBrick = [DeleteTile, Bounce]
-typeOfCollision BrickCoinBlock
+collisionWithTile :: Tile -> Kind -> [CollisionType]
+collisionWithTile TopBrick (BigPlayer _) = [DeleteTile, Bounce]
+collisionWithTile TopBrick _ = [Bounce]
+collisionWithTile MiddleBrick (BigPlayer _) = [DeleteTile, Bounce]
+collisionWithTile MiddleBrick _ = [Bounce]
+collisionWithTile BrickCoinBlock _
   = [CollectCoin, Change BonusBlockEmpty, Bounce]
-typeOfCollision BrickStarBlock
-  = [Spawn Star (0, 1), Change BonusBlockEmpty, Bounce]
-typeOfCollision BonusBlockCoin
+collisionWithTile BrickStarBlock _
+  = [SpawnObj Star (0, 1), Change BonusBlockEmpty, Bounce]
+collisionWithTile BonusBlockCoin _
   = [CollectCoin, Change BonusBlockEmpty, Bounce]
-typeOfCollision BonusBlockPowerUp
-  = [Spawn Mushroom (0, 1), Change BonusBlockEmpty, Bounce]
-typeOfCollision HiddenBlockLivesUp
-  = [Spawn HpMushroom (0, 1), Change BonusBlockEmpty, Bounce]
-typeOfCollision Empty = []
-typeOfCollision _ = [Bounce]
+collisionWithTile BonusBlockPowerUp _
+  = [SpawnObj Mushroom (0, 1), Change BonusBlockEmpty, Bounce]
+collisionWithTile HiddenBlockLivesUp _
+  = [SpawnObj HpMushroom (0, 1), Change BonusBlockEmpty, Bounce]
+collisionWithTile Empty _ = []
+collisionWithTile _  _ = [Bounce]
+
+-- | Type of collision with player.
+collisionWithObject :: Kind -> Int -> ([CollisionType], [CollisionType])
+collisionWithObject Gumba n = ([Die], [DeleteObj n, Bounce])
+collisionWithObject Turtle n = ([Die], [DeleteObj n, SpawnObj Shell (0, 0), Bounce])
+collisionWithObject Mushroom n = ([DeleteObj n, ToBig], [DeleteObj n, ToBig])
+collisionWithObject HpMushroom n = ([DeleteObj n, AddHp], [DeleteObj n, AddHp])
+collisionWithObject Flagpole _ = ([MoveToNextLevel], [MoveToNextLevel])
+collisionWithObject _ _ = ([], [])
 
 -- | Get size of `MovingObject of given kind.
 getSize :: Kind -> Size
@@ -215,7 +235,7 @@ getInitSpeed Turtle          = (-1 * tileSize, 0)
 getInitSpeed Mushroom        = (-1 * tileSize, 0)
 getInitSpeed HpMushroom      = (-1 * tileSize, 0)
 getInitSpeed Star            = (-1 * tileSize, g)
-getInitSpeed Shell           = (-1 * tileSize, 0)
+getInitSpeed Shell           = (-2 * tileSize, 0)
 getInitSpeed Flagpole        = (0, 0)
 
 -- ------------------------ Game initialization ------------------------ --
@@ -236,7 +256,7 @@ initGame levels = Game
     currLevel = (levels !! lvlNum)
 
 -- | Initial state of the player.
-initPlayer :: Integer -> Coord -> Player
+initPlayer :: Int -> Coord -> Player
 initPlayer n coord = createPlayer (SmallPlayer n) coord 3 False
 
 -- | Create the player.
@@ -273,16 +293,16 @@ updateLvlMap (l:ls) n pos tile = l : updateLvlMap ls (n - 1) pos tile
 updateElemInMatrix :: [[a]] -> Coord -> a -> [[a]]
 updateElemInMatrix [] _ _ = []
 updateElemInMatrix (l:ls) (pos_x, 0) tile
-  = updateElemInList l tile pos_x : ls
+  = updateElemInList l pos_x tile : ls
 updateElemInMatrix (l:ls) (pos_x, pos_y) tile
   = l : updateElemInMatrix ls (pos_x, pos_y - 1) tile
 
 -- | Update element in list.
-updateElemInList :: [a] -> a -> Integer -> [a]
+updateElemInList :: [a] -> Integer -> a -> [a]
 updateElemInList [] _ _ = []
-updateElemInList (_:xs) newElem 0 = newElem : xs
-updateElemInList (x:xs) newElem n = x
-  : updateElemInList xs newElem (n - 1)
+updateElemInList (_:xs) 0 newElem = newElem : xs
+updateElemInList (x:xs) n newElem = x
+  : updateElemInList xs (n - 1) newElem
 
 -- | Remove the item from the list.
 removeFromList :: Int -> [a] -> [a]
@@ -340,11 +360,18 @@ getMapHeight :: LevelMap -> Float
 getMapHeight lvlMap = fromIntegral (length lvlMap) * tileSize
 
 -- | Get the center between players.
-centerOfScreen :: [Player] -> Float
-centerOfScreen [] = 100
-centerOfScreen players =
-  mean $ foldr (minMax . getPos . playerObj) (pos1_x, pos1_x) (tail players)
+centerOfScreen :: ScreenSize -> LevelMap -> [Player] -> Float
+centerOfScreen _ _ [] = 100
+centerOfScreen screenSize@(width, _) lvlMap players
+  | res < offsetL = offsetL
+  | res > offsetR = offsetR
+  | otherwise = res
   where
+    gameScale = getGameScale screenSize lvlMap
+    offset = (fromIntegral width) / (2 * gameScale) - tileSize/2
+    size = tileSize * (fromIntegral $ length (lvlMap !! 0))
+    res = mean $ foldr (minMax . getPos . playerObj) (pos1_x, pos1_x) (tail players)
+    (offsetL, offsetR) = (offset, size - offset*2)
     (pos1_x, _) = (getPos . playerObj . head) players
     getPos (MovingObject _ pos _ _ _ _) = pos
     mean (lim_l, lim_r) = (lim_l + lim_r) / 2

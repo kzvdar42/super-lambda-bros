@@ -7,6 +7,13 @@ import Data.Fixed (mod')
 
 import Lib
 
+-- | Check collisions with all players.
+checkCollisions :: Game -> Game
+checkCollisions game =
+  foldr (.) id (map checkCollision (take numOfPlayers [0..])) game
+  where
+    numOfPlayers = length (gamePlayers game)
+
 -- | Check if the player's head collides with some block.
 -- And if is, run the `performCollisions`.
 checkCollision :: Int -> Game -> Game
@@ -14,8 +21,8 @@ checkCollision playerNum game =
   collideWithObjects $ case takeElemFromMatrix (levelMap curlvl) (x_close, y) of
     Nothing -> case takeElemFromMatrix (levelMap curlvl) (x_far, y) of
       Nothing -> if pos_y < 0 then performCollisions playerNum [(Die, (x, y))] game else game
-      Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (typeOfCollision tile)) game
-    Just tile -> performCollisions playerNum (map (\c -> (c, (x_close, y))) (typeOfCollision tile)) game
+      Just tile -> performCollisions playerNum (map (\c -> (c, (x_far, y))) (collisionWithTile tile kind)) game
+    Just tile -> performCollisions playerNum (map (\c -> (c, (x_close, y))) (collisionWithTile tile kind)) game
   where
     curlvl = gameCurLevel game
     (MovingObject kind (pos_x, pos_y) _ _ _ _) = playerObj ((gamePlayers game) !! playerNum)
@@ -33,58 +40,65 @@ performCollisions _ [] game = game
 performCollisions playerNum (c:cs) game =
   performCollisions playerNum cs $ case c of
     (DeleteTile, tile_pos) -> game {gameCurLevel = updtile tile_pos Empty}
-    (Spawn objKind (off_x, off_y), (tile_x, tile_y)) ->
-      let
-        updlvl = (gameCurLevel game)
-          { levelObjs = ((MovingObject objKind
-              (mapCoordToPos (tile_x + off_x, tile_y + off_y))
-              (1 * tileSize, 0) (0, 0) 0 0) : objects)
-          }
-      in
-      game {gameCurLevel = updlvl}
-    (Change tile, tile_pos) ->
-      game {gameCurLevel = updtile tile_pos tile}
-    (Bounce, _) ->
-      let
-        upd_player = curPlayer {playerObj =
-          (MovingObject kind pos (vel_x, -2 * minObjSize) (accel_x, 0.0) animC animD)}
-      in
-      game {gamePlayers = (updateElemInList (gamePlayers game) upd_player (fromIntegral playerNum))}
-    (CollectCoin, tile_pos) -> (addCoinToLevel tile_pos . incrementCoins) game
-    (Die, _) -> game
-      { gamePlayers =
-        updateElemInList
-        (gamePlayers game)
-        (curPlayer 
-        { playerObj = resetObj (playerObj curPlayer) (levelInitPoint initlvl)
-        , playerHp = (playerHp curPlayer) - 1
-        , playerIsDead = True
-        })
-        (fromIntegral playerNum)
+    (SpawnObj objKind (off_x, off_y), (tile_x, tile_y)) -> game 
+      { gameCurLevel = (gameCurLevel game)
+        { levelObjs = ((MovingObject objKind
+            (mapCoordToPos (tile_x + off_x, tile_y + off_y))
+            (1 * tileSize, 0) (0, 0) 0 0) : objects)
+        }
       }
+    (Change tile, tile_pos) -> game {gameCurLevel = updtile tile_pos tile}
+    (Bounce, _) ->game 
+      { gamePlayers = updPlayer curPlayer
+        { playerObj = (playerObj curPlayer)
+          { objectVel = (vel_x, -vel_y * 0.5)
+          , objectAccel = (accel_x, 0)
+          }
+        }
+      }
+    (CollectCoin, tile_pos) -> (addCoinToLevel tile_pos . incrementCoins) game
+    (Die, _) -> case kind of
+      (SmallPlayer _) -> game
+        { gamePlayers = updPlayer (
+          curPlayer
+          { playerObj = resetPlayerObj
+          , playerHp = (playerHp curPlayer) - 1
+          , playerIsDead = True
+          })
+        }
+      (BigPlayer _) -> game
+        {gamePlayers = updPlayer (curPlayer 
+          {playerObj = (playerObj curPlayer) {objectKind = SmallPlayer playerNum}})
+        }
+      _ -> game
     (DeleteObj objNum, _) -> game 
-      { gameCurLevel =
+      {gameCurLevel =
           (gameCurLevel game) {levelObjs = removeFromList objNum objects}
       }
     (ToBig, _) -> game
-      { gamePlayers =
-        updateElemInList
-        (gamePlayers game)
-        (curPlayer 
-          {playerObj = MovingObject (BigPlayer (getPlayerNum kind)) pos vel accel animC animD}
-        )
-        (fromIntegral playerNum)
-      }
+      {gamePlayers = updPlayer (
+        curPlayer
+          {playerObj = (playerObj curPlayer) {objectKind = BigPlayer playerNum}}
+      )}
+    (AddHp, _) -> game 
+      {gamePlayers = updPlayer (
+        curPlayer {playerHp = (playerHp curPlayer) + 1}
+      )}
     (MoveToNextLevel, _) -> game {gameNextLvlNum = Just (gameLvlNum game + 1)}
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
     curPlayer = (gamePlayers game) !! playerNum
     curlvl = gameCurLevel game
     objects = levelObjs curlvl
-    (MovingObject kind pos vel@(vel_x, _) accel@(accel_x, _) animC animD) =
+    (MovingObject kind _ (vel_x, vel_y) (accel_x, _) _ _) =
       playerObj ((gamePlayers game) !! playerNum)
     updtile t_pos t =
       curlvl {levelMap = updateElemInMatrix (levelMap curlvl) t_pos t}
+    updPlayer = updateElemInList (gamePlayers game) (fromIntegral playerNum)
+    resetPlayerObj = (playerObj curPlayer)
+      { objectKind = (SmallPlayer playerNum)
+      , objectPos = mapCoordToPos (levelInitPoint initlvl)
+      }
 
 -- | Reset the current level.
 resetLevel :: Game -> Game
@@ -92,20 +106,14 @@ resetLevel game = game
   { gameCurLevel = initlvl
   , gamePlayers = map
       (\p -> p
-      { playerObj = resetObj (playerObj p) (levelInitPoint initlvl)
+      { playerObj =
+          (playerObj p) {objectPos = mapCoordToPos (levelInitPoint initlvl)}
       , playerIsDead = playerHp p <= 0
       })
       (gamePlayers game)
   }
   where
     initlvl = (gameLevels game) !! (gameLvlNum game)
-resetObj (MovingObject k _ _ _ anC anD) new_coord =
-  MovingObject (SmallPlayer (getPlayerNum k)) (mapCoordToPos new_coord) (0, 0) (0, 0) anC anD
-
-getPlayerNum :: Kind -> Integer
-getPlayerNum (SmallPlayer n) = n
-getPlayerNum (BigPlayer n) = n
-getPlayerNum _ = -1
 
 
 addCoinToLevel :: Coord -> Game -> Game
@@ -129,13 +137,14 @@ incrementCoins game
 
 -- | Apply gravity to the `MovingObject`.
 applyGravityAsVel :: Float -> MovingObject -> MovingObject
-applyGravityAsVel dt (MovingObject kind pos (vel_x, vel_y) accel animC animD)
-  = MovingObject kind pos (vel_x, vel_y - g * dt) accel animC animD
+applyGravityAsVel dt object = object {objectVel = (vel_x, vel_y - g * dt)}
+  where
+    (vel_x, vel_y) = objectVel object
 
 -- | Apply friction to the `MovingObject`.
 applyFriction :: LevelMap -> MovingObject -> MovingObject
-applyFriction lvl (MovingObject kind pos (vel_x, vel_y) accel animC animD)
-  = MovingObject kind pos (vel_x * (1 - allFrictions), vel_y) accel animC animD
+applyFriction lvl object@(MovingObject kind pos (vel_x, vel_y) _ _ _)
+  = object {objectVel = (vel_x * (1 - allFrictions), vel_y)}
   where
     (size_x, _) = getSize kind
     allFrictions = applyToParts (+) 0 takeFriction lvl (size_x, minObjSize) pos
@@ -165,21 +174,26 @@ canObjJump lvlMap (size_x, _) (pos_x, pos_y) =
 
 -- | Jump to the stars!
 tryJump :: LevelMap -> MovingObject -> Position -> MovingObject
-tryJump lvlMap player@(MovingObject kind pos (vel_x, _) accel animC animD) (off_x, off_y)
+tryJump lvlMap object@(MovingObject kind pos (vel_x, _) _ _ _) (off_x, off_y)
   | canObjJump lvlMap (getSize kind) pos
-    = MovingObject kind pos (vel_x + off_x, off_y) accel animC animD
-  | otherwise = player
+    = object {objectVel = (vel_x + off_x, off_y)}
+  | otherwise = object
 
 
 -- | Updating the speed of Object due to user input.
 changeSpeed :: MovingObject -> Vector2 -> MovingObject
-changeSpeed (MovingObject kind pos (vel_x, vel_y) accel animC animD) (off_x, off_y)
-  = MovingObject kind pos (vel_x + off_x, vel_y + off_y) accel animC animD
+changeSpeed object (off_x, off_y) = 
+  object {objectVel = (vel_x + off_x, vel_y + off_y)}
+  where
+    (vel_x, vel_y) = objectVel object
 
 -- | Move Object due to it's velocity and acceleration.
 move :: Float -> MovingObject -> MovingObject
-move dt (MovingObject kind (pos_x, pos_y) (vel_x, vel_y) accel@(accel_x, accel_y) animC animD) =
-  MovingObject kind (new_x, new_y) (vel_x + accel_x, vel_y + accel_y) accel animC animD
+move dt object@(MovingObject _ (pos_x, pos_y) (vel_x, vel_y) (accel_x, accel_y) _ _) =
+  object
+    { objectPos = (new_x, new_y)
+    , objectVel = (vel_x + accel_x, vel_y + accel_y)
+    }
   where
     new_x = pos_x + vel_x * dt + accel_x * dt ** 2 / 2
     new_y = pos_y + vel_y * dt + accel_y * dt ** 2 / 2
@@ -209,20 +223,19 @@ tryMove :: Float -> LevelMap -> MovingObject -> MovingObject
 tryMove dt level object
   | canMoveAtThisLvl (new_x, new_y) = new_obj
   | canMoveAtThisLvl (old_x, new_y) && (isPlayer kind)
-    = move dt (MovingObject kind old_pos (0.0, vel_y) (0.0, accel_y) animC animD)
+    = move dt (updObj (0.0, vel_y) (0.0, accel_y))
   | canMoveAtThisLvl (old_x, new_y)
-    = move dt (MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD)
+    = move dt (updObj (-vel_x, vel_y) (-accel_x, accel_y))
   | canMoveAtThisLvl (new_x, old_y)
-    = move dt (MovingObject kind old_pos (vel_x, 0.0) (accel_x, 0.0) animC animD)
-  | isPlayer kind
-    = MovingObject kind old_pos (0.0, 0.0) (0.0, 0.0) animC animD
-  | otherwise
-    = MovingObject kind old_pos (-vel_x, vel_y) (-accel_x, accel_y) animC animD
+    = move dt (updObj (vel_x, 0.0) (accel_x, 0.0))
+  | isPlayer kind = updObj (0.0, 0.0) (0.0, 0.0)
+  | otherwise = updObj (-vel_x, vel_y) (-accel_x, accel_y)
   where
-    (MovingObject kind old_pos@(old_x, old_y)
-      (vel_x, vel_y) (accel_x, accel_y) animC animD) = object
+    (MovingObject kind (old_x, old_y)
+      (vel_x, vel_y) (accel_x, accel_y) _ _) = object
     canMoveAtThisLvl = checkforAllParts canMove level (getSize kind)
     new_obj@(MovingObject _ (new_x, new_y) _ _ _ _) = move dt object
+    updObj vel accel = object {objectVel = vel, objectAccel = accel}
 
 -- | Tries to move object in limits of screen.
 tryMoveInScreen 
@@ -281,7 +294,7 @@ handleStartScreen :: Game -> Game
 handleStartScreen game
   | elem ENTER_BUTTON movements = 
     game {gameNextLvlNum = Just (gameLvlNum game)}
-  | elem P1_U_BUTTON movements = 
+  | elem P1_U_BUTTON movements && numOfPlayers < 3 = 
     game {gamePlayers = makePlayers (numOfPlayers + 1) 0 }
   | elem P1_D_BUTTON movements && numOfPlayers > 1 = 
     game {gamePlayers = makePlayers (numOfPlayers - 1) 0 }
@@ -302,7 +315,7 @@ updateGame res dt game =
     Nothing ->
       if length alivePlayers == 0
         then resetLevel game
-        else foldr (.) id (map checkCollision (take (length players) [0..])) upd_game
+        else checkCollisions upd_game
     Just (-1) -> handleStartScreen game
     Just nextLevel -> case takeElemFromList (gameLevels game) (fromIntegral nextLevel) of
       Nothing -> game
@@ -318,7 +331,7 @@ updateGame res dt game =
     upd_game = game { gameCurLevel = updlvl, gamePlayers = upd_players }
     players = gamePlayers game
     alivePlayers = filter (\p -> not (playerIsDead p)) players
-    screen_pos = centerOfScreen alivePlayers
+    screen_pos = centerOfScreen res lvlMap alivePlayers
     upd_players = map
       (\(p, p_num) ->
         if (playerIsDead p)
@@ -373,27 +386,26 @@ collideWithObjects game =
   foldr (.) id
     (map (\plr_num ->
       performCollisions plr_num
-        (collidePlayerWithEnemies (players !! plr_num) enemies)
+        (getCollisionsWithObjects (players !! plr_num) enemies)
       ) numOfAlivePlayers
     ) game
   where
     players = gamePlayers game
-    numOfAlivePlayers =
-      filter
+    numOfAlivePlayers = filter
       (\plr_num -> not (playerIsDead (players !! plr_num)))
       (take (length players) [0..])
     enemies = levelObjs (gameCurLevel game)
 
 -- | Collide player with enemies.
-collidePlayerWithEnemies :: Player -> [MovingObject] -> [(CollisionType, Coord)]
-collidePlayerWithEnemies player objects =
-  concat (map (\(o, n) -> isInPlayer o n) (zip objects [0..]))
+getCollisionsWithObjects :: Player -> [MovingObject] -> [(CollisionType, Coord)]
+getCollisionsWithObjects player objects =
+  concat (map (\(o, n) -> getCollisions o n) (zip objects [0..]))
   where
     (MovingObject p_kind (p_pos_x, p_pos_y) _ _ _ _) = playerObj player
-    (p_size_x, p_size_y) = getSize p_kind
-    isInPlayer (MovingObject kind pos@(pos_x, pos_y) _ _ _ _) n
-      | inPlayer && (p_pos_y >= pos_y + thresh) = addPos (snd $ colWithObj kind n)
-      | inPlayer = addPos (fst $ colWithObj kind n)
+    (p_size_x, _) = getSize p_kind
+    getCollisions (MovingObject kind pos@(pos_x, pos_y) _ _ _ _) n
+      | inPlayer && (p_pos_y >= pos_y + thresh) = addPos (snd $ collisionWithObject kind n)
+      | inPlayer = addPos (fst $ collisionWithObject kind n)
       | otherwise = []
       where
         addPos = map (\c -> (c, coord))
@@ -403,13 +415,5 @@ collidePlayerWithEnemies player objects =
         inPlayer =
           max_x_l >= (min p_pos_x pos_x)
           && max_x_l <= (min (p_pos_x + p_size_x) (pos_x + size_x))
-          && p_pos_y >= pos_y
+          && p_pos_y >= pos_y - thresh
           && p_pos_y <= pos_y + size_y
-
--- | Type of collision with player.
-colWithObj :: Kind -> Int -> ([CollisionType], [CollisionType])
-colWithObj Gumba n = ([Die], [DeleteObj n])
-colWithObj Turtle n = ([Die], [DeleteObj n, Spawn Shell (0, 0)])
-colWithObj Mushroom n = ([DeleteObj n, ToBig], [DeleteObj n, ToBig])
-colWithObj Flagpole _ = ([MoveToNextLevel], [MoveToNextLevel])
-colWithObj _ _ = ([], [])

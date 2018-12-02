@@ -18,7 +18,9 @@ drawGame assets res game =
     textScale = textScaleFactor * gameScale
     curlvl = (gameCurLevel game)
     lvlMap = levelMap curlvl
-    gameInfo = showScaledText (concat ["coins: ", show (gameCoins game){-, ", lives: ", hp-}])
+    gameInfo = 
+      showScaledText (concat ["coins: ", show (gameCoins game)])
+      <> pictures (map (\p -> translate 0 (-charSize) (showScaledText (playerHp p))) alivePlayers)
     -- Debug output
     (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (head (gamePlayers game))
     (сoord_x, coord_y) = mapPosToCoord pos
@@ -49,7 +51,7 @@ drawGame assets res game =
       )
     fres = (fromIntegral (fst res), fromIntegral (snd res))
     mapHeight = getMapHeight lvlMap
-    composedRelative = alignWorldToX ((*) gameScale (centerOfScreen alivePlayers))
+    composedRelative = alignWorldToX ((*) gameScale (centerOfScreen res lvlMap alivePlayers))
       (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
   in
     case gameNextLvlNum game of
@@ -58,16 +60,12 @@ drawGame assets res game =
           (centerPictureY mapHeight gameScale debug)
         <> translate ((fst fres - coordOffset - charSize * 10) / 2)
           ((snd fres - coordOffset) / 2) gameInfo
-      Just (-1) -> translate (-charSize * 14) 0 (
-        (scale (textScale * 2) (textScale * 2) (text "Choose the amount of players"))
-        ) 
-        <> translate 0 (- charSize * 4) (
-          scale (textScale * 2) (textScale * 2) (
-            (text . show) (length (gamePlayers game))
-          )
+      Just (-1) -> scale textScale textScale (
+         ( translate (-charSize * 14) 0 (text "Choose the amount of players"))
+        <> translate 0 (- charSize * 4) ((text . show) (length (gamePlayers game)))
         )
-      Just _  -> translate (-charSize * 4) 0 (
-        scale (textScale * 2) (textScale * 2) (text "You win!")
+      Just _ -> scale textScale textScale (
+        translate (-charSize * 2) 0 (text "You win!")
         )
 
 -- | Draw the level.
