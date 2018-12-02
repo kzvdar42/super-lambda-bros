@@ -364,7 +364,7 @@ centerOfScreen :: ScreenSize -> LevelMap -> [Player] -> Float
 centerOfScreen _ _ [] = 100
 centerOfScreen screenSize@(width, _) lvlMap players
   | res < offsetL = offsetL
-  | res > offsetR = offsetR
+  | res > offsetR = res
   | otherwise = res
   where
     gameScale = getGameScale screenSize lvlMap

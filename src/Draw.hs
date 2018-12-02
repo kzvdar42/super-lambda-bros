@@ -18,9 +18,13 @@ drawGame assets res game =
     textScale = textScaleFactor * gameScale
     curlvl = (gameCurLevel game)
     lvlMap = levelMap curlvl
-    gameInfo = 
-      showScaledText (concat ["coins: ", show (gameCoins game)])
-      <> pictures (map (\p -> translate 0 (-charSize) (showScaledText (playerHp p))) alivePlayers)
+    gameInfo =
+      translate (- (fst fres) / 2) 0 (
+        showScaledText "lives:"
+        <> pictures (map (\(p, pNum) ->
+          translate 0 (-charSize * pNum) (showScaledObj (playerHp p))
+          ) (zip (gamePlayers game) [1..])
+      )) <> translate ((fst fres - charSize * 10) / 2) 0 (showScaledText (concat ["coins: ", show (gameCoins game)]))
     -- Debug output
     (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (head (gamePlayers game))
     (сoord_x, coord_y) = mapPosToCoord pos
@@ -28,18 +32,19 @@ drawGame assets res game =
     charSize = 150 * textScale
     coordOffset = 2 * charSize
     floatOffset = 6 * charSize
-    showScaledText str = scale textScale textScale (text (show str))
+    showScaledText str = scale textScale textScale (text str)
+    showScaledObj n = (showScaledText . show) n
     inputEvents = pictures $ map (\(t, p) -> t p)
       (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
-        (map (showScaledText) (S.elems (pressedKeys game)))
+        (map (showScaledObj) (S.elems (pressedKeys game)))
       )
     debug = translate 0 (-gameScale * tileSize - charSize)
       (
-        showScaledText сoord_x <> translate 0 (-charSize) (showScaledText coord_y)
+        showScaledObj сoord_x <> translate 0 (-charSize) (showScaledObj coord_y)
         <> translate coordOffset 0
-          (showScaledText pos_x <> translate 0 (-charSize) (showScaledText pos_y))
+          (showScaledObj pos_x <> translate 0 (-charSize) (showScaledObj pos_y))
         <> translate (coordOffset + floatOffset) 0
-          (showScaledText off_x <> translate 0 (-charSize) (showScaledText off_y))
+          (showScaledObj off_x <> translate 0 (-charSize) (showScaledObj off_y))
         <> translate 0  (-coordOffset) inputEvents
       )
     alivePlayers = filter (\p -> not (playerIsDead p)) (gamePlayers game)
@@ -58,8 +63,7 @@ drawGame assets res game =
       Nothing -> composedRelative
         <> translate (-(coordOffset + 2 * floatOffset) / 2) 0
           (centerPictureY mapHeight gameScale debug)
-        <> translate ((fst fres - coordOffset - charSize * 10) / 2)
-          ((snd fres - coordOffset) / 2) gameInfo
+        <> translate 0 ((snd fres - coordOffset) / 2) gameInfo
       Just (-1) -> scale textScale textScale (
          ( translate (-charSize * 14) 0 (text "Choose the amount of players"))
         <> translate 0 (- charSize * 4) ((text . show) (length (gamePlayers game)))
