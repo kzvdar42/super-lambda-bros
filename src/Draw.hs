@@ -14,50 +14,51 @@ import Lib
 drawGame :: Assets -> ScreenSize -> Game -> Picture
 drawGame assets res game =
   let
-    gameScale = getGameScale res lvlMap
-    textScale = textScaleFactor * gameScale
-    curlvl = (gameCurLevel game)
+    curlvl = gameCurLevel game
     lvlMap = levelMap curlvl
-    gameInfo =
-      translate (- (fst fres) / 2) 0 (
-        showScaledText "lives:"
-        <> pictures (map (\(p, pNum) ->
-          translate 0 (-charSize * pNum) (showScaledObj (playerHp p))
-          ) (zip (gamePlayers game) [1..])
-      )) <> translate ((fst fres - charSize * 10) / 2) 0 (showScaledText (concat ["coins: ", show (gameCoins game)]))
+    gameScale = getGameScale res lvlMap
+    alivePlayers = getAlivePlayers (gamePlayers game)
+    fres = (fromIntegral (fst res), fromIntegral (snd res))
+    mapHeight = getMapHeight lvlMap
+    textScale = textScaleFactor * gameScale
+    charSize = 150 * textScale
+    coordOffset = 2 * charSize
+    floatOffset = 6 * charSize
     -- Debug output
     (MovingObject _ pos@(pos_x, pos_y) _ _ _ _) = playerObj (head (gamePlayers game))
     (сoord_x, coord_y) = mapPosToCoord pos
     (off_x, off_y) = (mod' pos_x tileSize, mod' pos_y tileSize)
-    charSize = 150 * textScale
-    coordOffset = 2 * charSize
-    floatOffset = 6 * charSize
     showScaledText str = scale textScale textScale (text str)
     showScaledObj n = (showScaledText . show) n
-    inputEvents = pictures $ map (\(t, p) -> t p)
-      (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
-        (map (showScaledObj) (S.elems (pressedKeys game)))
-      )
+    showRow obj1 obj2 = showScaledObj obj1 <> translate 0 (-charSize) (showScaledObj obj2)
     debug = translate 0 (-gameScale * tileSize - charSize)
-      (
-        showScaledObj сoord_x <> translate 0 (-charSize) (showScaledObj coord_y)
-        <> translate coordOffset 0
-          (showScaledObj pos_x <> translate 0 (-charSize) (showScaledObj pos_y))
-        <> translate (coordOffset + floatOffset) 0
-          (showScaledObj off_x <> translate 0 (-charSize) (showScaledObj off_y))
-        <> translate 0  (-coordOffset) inputEvents
+      ( showRow сoord_x coord_y
+        <> translate coordOffset 0 (showRow pos_x pos_y)
+        <> translate (coordOffset + floatOffset) 0 (showRow off_x off_y)
+        <> translate 0  (-coordOffset) (pictures $ map (\(t, p) -> t p)
+          (zip (map (\y -> translate 0.0 (-y * charSize)) [0..])
+            (map showScaledObj (S.elems (pressedKeys game)))
+          ))
       )
-    alivePlayers = filter (\p -> not (playerIsDead p)) (gamePlayers game)
-    composed = scale gameScale gameScale (
-      drawLvl assets lvlMap
-      <> pictures (map (drawObject assets) (levelObjs curlvl))
-      <> pictures (map (drawObject assets . playerObj) alivePlayers)
-      <> pictures (map (drawSprite assets) (levelSprites (gameCurLevel game)))
-      )
-    fres = (fromIntegral (fst res), fromIntegral (snd res))
-    mapHeight = getMapHeight lvlMap
-    composedRelative = alignWorldToX ((*) gameScale (centerOfScreen res lvlMap alivePlayers))
-      (getScreenOffset fres lvlMap gameScale) $ centerPictureY mapHeight gameScale composed
+    -- End of Debug output.
+    gameInfo =
+      translate (- (fst fres) / 2 + charSize) 0 (
+        showScaledText "lives:"
+        <> pictures (map (\(p, pNum) ->
+          translate 0 (-charSize * pNum) (showScaledObj (playerHp p))
+          ) (zip (gamePlayers game) [1..])
+      )) <> translate ((fst fres - charSize * 10) / 2) 0 (
+        showScaledText (concat ["coins: ", show (gameCoins game)]
+      ))
+    composedRelative = scale gameScale gameScale $
+      centerPictureY mapHeight 1
+        ( translate (-(centerOfScreen res lvlMap alivePlayers)) 0 (
+          drawLvl assets lvlMap
+          <> pictures (map (drawObject assets) (levelObjs curlvl))
+          <> pictures (map (drawObject assets . playerObj) alivePlayers)
+          <> pictures (map (drawSprite assets) (levelSprites (gameCurLevel game)))
+          )
+        )
   in
     case gameNextLvlNum game of
       Nothing -> composedRelative
@@ -65,11 +66,11 @@ drawGame assets res game =
           (centerPictureY mapHeight gameScale debug)
         <> translate 0 ((snd fres - coordOffset) / 2) gameInfo
       Just (-1) -> scale textScale textScale (
-         ( translate (-charSize * 14) 0 (text "Choose the amount of players"))
-        <> translate 0 (- charSize * 4) ((text . show) (length (gamePlayers game)))
+           ( translate (-charSize * 14) 0 (text "Choose the amount of players"))
+          <> translate 0 (- charSize * 4) ((text . show) (length (gamePlayers game)))
         )
       Just _ -> scale textScale textScale (
-        translate (-charSize * 2) 0 (text "You win!")
+          translate (-charSize * 4) 0 (text "You win!")
         )
 
 -- | Draw the level.
@@ -157,6 +158,7 @@ drawPlayer mSprites _ 3 = getAssetFromList mSprites 1
 drawPlayer mSprites _ 8 = getAssetFromList mSprites 8
 drawPlayer mSprites _ _ = getAssetFromList mSprites 0
 
+-- | Draw the animation of coin. TODO: Generalize.
 drawCoinAnim :: [Picture] -> Float -> Picture
 drawCoinAnim mSprites animC = getAssetFromList mSprites (0 + ((round animC) `mod` 14))
 
@@ -171,18 +173,3 @@ getAssetFromList assets num =
 -- | Given picture height center it
 centerPictureY :: Float -> Float -> Picture -> Picture
 centerPictureY height gameScale pic = translate 0 (gameScale * (-height + tileSize) / 2) pic
-
--- | Move the world accoring to player movement
-alignWorldToX :: Float -> (Float, Float) -> Picture -> Picture
-alignWorldToX x (offsetL, offsetR)
-  | x < offsetL = translate (-offsetL) 0
-  | x > offsetR = translate (-offsetR) 0
-  | otherwise = translate (-x) 0
-
--- | Calculate offsets to limit map drawing on sides
-getScreenOffset :: (Float, Float) -> LevelMap -> Float -> Position
-getScreenOffset (width, _) lvlMap gameScale
-  = (offset, size - offset - tileSize * gameScale)
-  where
-    offset = (width - tileSize * gameScale) / 2
-    size = gameScale * tileSize * (fromIntegral $ length (lvlMap !! 0))

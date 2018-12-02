@@ -35,6 +35,44 @@ checkCollision playerNum game =
         then (x, x_r)
         else (x_r, x)
 
+-- | Collide all objects with players.
+collideWithObjects :: Game -> Game
+collideWithObjects game =
+  foldr (.) id
+    (map (\plr_num ->
+      performCollisions plr_num
+        (getCollisionsWithObjects (players !! plr_num) enemies)
+      ) numOfAlivePlayers
+    ) game
+  where
+    players = gamePlayers game
+    numOfAlivePlayers = filter
+      (\plr_num -> not (playerIsDead (players !! plr_num)))
+      (take (length players) [0..])
+    enemies = levelObjs (gameCurLevel game)
+
+-- | Collide player with enemies.
+getCollisionsWithObjects :: Player -> [MovingObject] -> [(CollisionType, Coord)]
+getCollisionsWithObjects player objects =
+  concat (map (\(o, n) -> getCollisions o n) (zip objects [0..]))
+  where
+    (MovingObject p_kind (p_pos_x, p_pos_y) _ _ _ _) = playerObj player
+    (p_size_x, _) = getSize p_kind
+    getCollisions (MovingObject kind pos@(pos_x, pos_y) _ _ _ _) n
+      | inPlayer && (p_pos_y >= pos_y + thresh) = addPos (snd $ collisionWithObject kind n)
+      | inPlayer = addPos (fst $ collisionWithObject kind n)
+      | otherwise = []
+      where
+        addPos = map (\c -> (c, coord))
+        coord = mapPosToCoord pos
+        (size_x, size_y) = getSize kind
+        max_x_l = max p_pos_x pos_x
+        inPlayer =
+          max_x_l >= (min p_pos_x pos_x)
+          && max_x_l <= (min (p_pos_x + p_size_x) (pos_x + size_x))
+          && p_pos_y >= pos_y - thresh
+          && p_pos_y <= pos_y + size_y
+
 -- | Perform the collisions.
 -- Right now the implementation is fixed to the position of the player.
 performCollisions :: Int -> [(CollisionType, Coord)] -> Game -> Game
@@ -100,6 +138,10 @@ performCollisions playerNum (c:cs) game =
     resetPlayerObj = (playerObj curPlayer)
       { objectKind = (SmallPlayer playerNum)
       , objectPos = mapCoordToPos (levelInitPoint initlvl)
+      , objectVel = (0, 0)
+      , objectAccel = (0, 0)
+      , objectAnimC = 0
+      , objectAnimD = 5
       }
 
 -- | Reset the current level.
@@ -331,7 +373,7 @@ updateGame res dt game =
     updlvl = curlvl { levelObjs = upd_objects, levelSprites = upd_sprites }
     upd_game = game { gameCurLevel = updlvl, gamePlayers = upd_players }
     players = gamePlayers game
-    alivePlayers = filter (\p -> not (playerIsDead p)) players
+    alivePlayers = getAlivePlayers players
     screen_pos = centerOfScreen res lvlMap alivePlayers
     upd_players = map
       (\(p, p_num) ->
@@ -380,41 +422,3 @@ updateSprites dt (s:sp) = if ttl < counter then others else updSprite : others
     (Sprite typ pos counter ttl act) = s
     updSprite = (Sprite typ pos (counter + dt * animationScale * 2.5) ttl act)
     others = (updateSprites dt sp)
-
--- | Collide all objects with players.
-collideWithObjects :: Game -> Game
-collideWithObjects game =
-  foldr (.) id
-    (map (\plr_num ->
-      performCollisions plr_num
-        (getCollisionsWithObjects (players !! plr_num) enemies)
-      ) numOfAlivePlayers
-    ) game
-  where
-    players = gamePlayers game
-    numOfAlivePlayers = filter
-      (\plr_num -> not (playerIsDead (players !! plr_num)))
-      (take (length players) [0..])
-    enemies = levelObjs (gameCurLevel game)
-
--- | Collide player with enemies.
-getCollisionsWithObjects :: Player -> [MovingObject] -> [(CollisionType, Coord)]
-getCollisionsWithObjects player objects =
-  concat (map (\(o, n) -> getCollisions o n) (zip objects [0..]))
-  where
-    (MovingObject p_kind (p_pos_x, p_pos_y) _ _ _ _) = playerObj player
-    (p_size_x, _) = getSize p_kind
-    getCollisions (MovingObject kind pos@(pos_x, pos_y) _ _ _ _) n
-      | inPlayer && (p_pos_y >= pos_y + thresh) = addPos (snd $ collisionWithObject kind n)
-      | inPlayer = addPos (fst $ collisionWithObject kind n)
-      | otherwise = []
-      where
-        addPos = map (\c -> (c, coord))
-        coord = mapPosToCoord pos
-        (size_x, size_y) = getSize kind
-        max_x_l = max p_pos_x pos_x
-        inPlayer =
-          max_x_l >= (min p_pos_x pos_x)
-          && max_x_l <= (min (p_pos_x + p_size_x) (pos_x + size_x))
-          && p_pos_y >= pos_y - thresh
-          && p_pos_y <= pos_y + size_y

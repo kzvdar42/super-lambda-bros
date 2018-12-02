@@ -24,6 +24,7 @@ handleGame (G.EventKey (G.Char 'k') keyState _ _) = handleKeyPress keyState P3_R
 handleGame (G.EventKey (G.SpecialKey G.KeyEnter) keyState _ _) = handleKeyPress keyState ENTER_BUTTON
 handleGame _ = id
 
+-- | Add/delete the given key to/from the list if key is pressed/unpressed.
 handleKeyPress :: G.KeyState -> Movement -> Game -> Game
 handleKeyPress keyState mov game =
   case keyState of

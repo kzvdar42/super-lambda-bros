@@ -37,6 +37,7 @@ data Movement
   | P2_U_BUTTON | P2_L_BUTTON | P2_D_BUTTON | P2_R_BUTTON
   -- | Third player.
   | P3_U_BUTTON | P3_L_BUTTON | P3_D_BUTTON | P3_R_BUTTON
+  -- | General buttons.
   | ENTER_BUTTON
   deriving (Eq, Ord, Show)
 
@@ -60,8 +61,8 @@ data Game = Game
 
 -- Objects
 type ScreenSize = (Int, Int)
-type Vector2 = (Float, Float)
 type Coord = (Integer, Integer)
+type Vector2 = (Float, Float)
 type Position = Vector2
 type Velocity = Vector2
 type Acceleration = Vector2
@@ -73,8 +74,8 @@ data MovingObject = MovingObject
   , objectPos   :: Position     -- ^ Object position
   , objectVel   :: Velocity     -- ^ Object velocity
   , objectAccel :: Acceleration -- ^ Object acceleration
-  , objectAnimC :: Float        -- ^ Object animation ???
-  , objectAnimD :: Int          -- ^ Object animation ???
+  , objectAnimC :: Float        -- ^ Object animation counter
+  , objectAnimD :: Int          -- ^ Object animation position
   }
 
 -- | Data type for the animation handling with short time-to-live sprites
@@ -178,7 +179,8 @@ canPass Empty = True
 canPass HiddenBlockLivesUp = True
 canPass _ = False
 
--- | Determines the speed of animation for different kinds of objects.
+-- | Determines the speed of animation for different kinds of objects. 
+-- TODO: Implement and use :)
 getAnimDivisor :: Kind -> Float
 getAnimDivisor _ = 1000
 
@@ -210,8 +212,10 @@ collisionWithTile _  _ = [Bounce]
 collisionWithObject :: Kind -> Int -> ([CollisionType], [CollisionType])
 collisionWithObject Gumba n = ([Die], [DeleteObj n, Bounce])
 collisionWithObject Turtle n = ([Die], [DeleteObj n, SpawnObj Shell (0, 0), Bounce])
+collisionWithObject Shell n = ([Die], [DeleteObj n, Bounce])  -- FIXME: Change to right collisions
 collisionWithObject Mushroom n = ([DeleteObj n, ToBig], [DeleteObj n, ToBig])
 collisionWithObject HpMushroom n = ([DeleteObj n, AddHp], [DeleteObj n, AddHp])
+collisionWithObject Star n = ([DeleteObj n, ToBig], [DeleteObj n, ToBig])  -- FIXME: Change to right collisions
 collisionWithObject Flagpole _ = ([MoveToNextLevel], [MoveToNextLevel])
 collisionWithObject _ _ = ([], [])
 
@@ -225,7 +229,7 @@ getSize Mushroom        = (minObjSize * 2, minObjSize * 2)
 getSize HpMushroom      = (minObjSize * 2, minObjSize * 2)
 getSize Star            = (minObjSize * 2, minObjSize * 2)
 getSize Shell           = (minObjSize * 2, minObjSize * 2)
-getSize Flagpole        = (1 * tileSize, 10 * tileSize)
+getSize Flagpole        = (1 * tileSize  , 10 * tileSize)
 
 getInitSpeed :: Kind -> Vector2
 getInitSpeed (BigPlayer _)   = (0, 0)
@@ -248,7 +252,7 @@ initGame levels = Game
     , gamePlayers = [initPlayer 0 (levelInitPoint currLevel)]
     , gameCoins = 0
     , gameLvlNum = lvlNum
-    , gameNextLvlNum = Just (-1)
+    , gameNextLvlNum = Just (-1) -- ^ Start with init screen
     , pressedKeys = S.empty
     }
   where
@@ -263,12 +267,12 @@ initPlayer n coord = createPlayer (SmallPlayer n) coord 3 False
 createPlayer :: Kind -> Coord -> Integer -> Bool -> Player
 createPlayer kind coord hp isDead = Player
   { playerObj =
-      MovingObject kind (mapCoordToPos coord) (0.0, 0.0) (0.0, 0.0) 0 5
+      MovingObject kind (mapCoordToPos coord) (0, 0) (0, 0) 0 5
   , playerHp = hp
   , playerIsDead = isDead
   }
 
--- ------------------------ Work with map ------------------------ --
+-- ------------------------ Work with multidimential lists ------------------------ --
 
 -- | Safely take the tile with given indexes from the level.
 takeElemFromMatrix :: [[a]] -> Coord -> Maybe a
@@ -349,6 +353,7 @@ applyToParts funForFold base posFun lvl (size_x, size_y) (pos_x, pos_y)
     [(a, b) | a <- [0..count_x - 1], b <- [0..count_y - 1]])
   where
     (count_x, count_y) = (div' size_x minObjSize, div' size_y minObjSize)
+    offset :: Integer -> Float
     offset n = fromIntegral n * minObjSize
 
 -- | Returns the scale for this screen and level.
@@ -364,18 +369,21 @@ centerOfScreen :: ScreenSize -> LevelMap -> [Player] -> Float
 centerOfScreen _ _ [] = 100
 centerOfScreen screenSize@(width, _) lvlMap players
   | res < offsetL = offsetL
-  | res > offsetR = res
+  | res > offsetR = offsetR
   | otherwise = res
   where
     gameScale = getGameScale screenSize lvlMap
-    offset = (fromIntegral width) / (2 * gameScale) - tileSize/2
-    size = tileSize * (fromIntegral $ length (lvlMap !! 0))
-    res = mean $ foldr (minMax . getPos . playerObj) (pos1_x, pos1_x) (tail players)
-    (offsetL, offsetR) = (offset, size - offset*2)
-    (pos1_x, _) = (getPos . playerObj . head) players
-    getPos (MovingObject _ pos _ _ _ _) = pos
+    offset = (fromIntegral width) / (2 * gameScale) - tileSize / 2
+    mapSize = tileSize * (fromIntegral $ length (lvlMap !! 0))
+    (offsetL, offsetR) = (offset, mapSize - offset - tileSize)
+    (pos1_x, _) = (objectPos . playerObj . head) players
+    res = mean $ foldr (minMax . objectPos . playerObj) (pos1_x, pos1_x) (tail players)
     mean (lim_l, lim_r) = (lim_l + lim_r) / 2
     minMax (pos_x, _) lim@(lim_l, lim_r)
       | pos_x < lim_l = (pos_x, lim_r)
       | pos_x > lim_r = (lim_l, pos_x)
       | otherwise = lim
+
+-- | Get the list of alive players.
+getAlivePlayers :: [Player] -> [Player]
+getAlivePlayers = filter (\p -> not (playerIsDead p))
