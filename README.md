@@ -1,7 +1,10 @@
 # Super Lambda Bros.
-Jumping action game on Haskell.
+Jumping action game on Haskell with local multiplayer.
 
-![Game Icon](images\icon.png)
+<p align="center">
+  <img src="images/icon.png" alt="Screenshot 3" height="300">
+  <a href="https://youtu.be/ueNA69sovLk"> <img src="images/trimmed_gameplay.gif" alt="Screenshot 4" height="300"> </a>
+</p>
 
 ## Authors
 * Denis Chernikov
@@ -33,7 +36,15 @@ To exit the game press the `ESC` button.
 
 ## Screenshots
 
-<!-- Скриншота/гифки нет. -->
+<p align="center">
+  <img src="images/screenshot.jpg" alt="Screenshot 1" width="300">
+  <img src="images/screenshot_1.jpg" alt="Screenshot 2" width="300">
+</p>
+
+<p align="center">
+  <img src="images/screenshot_2.jpg" alt="Screenshot 3" width="300">
+  <img src="images/screenshot_3.jpg" alt="Screenshot 4" width="300">
+</p>
 
 ## Implementation
 
